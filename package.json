@@ -1,23 +1,15 @@
 {
-  "name": "best-of-us-games",
-  "version": "1.0.0",
-  "description": "Best of us AI games using Groq API and Render hosting",
+  "name": "ai-stall-games",
+  "version": "1.1.0",
+  "description": "Dark AI themed stall games with Groq",
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "express-rate-limit": "^7.4.0",
-    "morgan": "^1.10.0",
-    "groq-sdk": "^0.3.3",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "node-fetch": "^3.3.2"
   }
 }
