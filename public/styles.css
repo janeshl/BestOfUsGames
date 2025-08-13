@@ -1,62 +1,68 @@
 body {
-  margin: 0;
-  font-family: 'Orbitron', sans-serif;
-  background: radial-gradient(circle at center, #050505 0%, #000000 100%);
-  color: #0ff;
-  overflow: hidden;
+    font-family: 'Orbitron', sans-serif;
+    background: radial-gradient(circle at top, #0a0a0a, #000000);
+    color: #0ff;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
 }
 
-h1, h2, p {
-  text-align: center;
-  text-shadow: 0 0 8px #0ff, 0 0 15px #0ff;
+.neon-title {
+    font-size: 2.5em;
+    text-shadow: 0 0 10px #0ff, 0 0 20px #00f6ff, 0 0 30px #00e5ff;
+    margin-top: 20px;
 }
 
-.game-btn, button {
-  display: block;
-  margin: 10px auto;
-  padding: 12px 24px;
-  font-size: 1.2em;
-  background: rgba(0,255,255,0.1);
-  color: #0ff;
-  border: 1px solid #0ff;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-.game-btn:hover, button:hover {
-  background: rgba(0,255,255,0.3);
-  box-shadow: 0 0 15px #0ff;
-}
-
-input, select {
-  display: block;
-  margin: 10px auto;
-  padding: 10px;
-  background: black;
-  color: #0ff;
-  border: 1px solid #0ff;
-  border-radius: 5px;
-}
-
-.panel {
-  opacity: 0;
-  transform: translateY(30px);
-  position: absolute;
-  width: 100%;
-  top: 20%;
+.screen {
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 1;
 }
 
 .hidden {
-  display: none;
+    display: none;
 }
 
-#output {
-  margin: 20px auto;
-  max-width: 600px;
-  padding: 20px;
-  border: 1px solid #0ff;
-  background: rgba(0,255,255,0.05);
-  border-radius: 8px;
-  min-height: 100px;
-  text-align: center;
+.game-btn, button {
+    background: transparent;
+    border: 2px solid #0ff;
+    color: #0ff;
+    padding: 10px 20px;
+    margin: 10px;
+    font-size: 1.2em;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.game-btn:hover, button:hover {
+    background: #0ff;
+    color: #000;
+    box-shadow: 0 0 20px #0ff;
+}
+
+input {
+    background: #111;
+    border: 2px solid #0ff;
+    color: #0ff;
+    padding: 8px;
+    margin: 5px;
+    border-radius: 5px;
+    font-size: 1em;
+}
+
+#lie-statements p {
+    margin: 10px;
+    background: rgba(0, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #0ff;
+}
+
+.back-btn {
+    margin-top: 20px;
 }
