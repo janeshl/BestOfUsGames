@@ -1,128 +1,58 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const panels = {
-    selection: document.getElementById("game-selection"),
-    future: document.getElementById("future-input-section"),
-    lie: document.getElementById("lie-section"),
-    characterTopic: document.getElementById("character-topic-section"),
-    output: document.getElementById("output-section")
-  };
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Stall Games</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+    <div id="main-menu" class="screen">
+        <h1 class="neon-title">⚡ AI Stall Games ⚡</h1>
+        <button class="game-btn" onclick="showScreen('future-prediction')">🔮 AI Future Prediction</button>
+        <button class="game-btn" onclick="showScreen('ai-lie')">🕵 Guess the AI's Lie</button>
+        <button class="game-btn" onclick="showScreen('guess-character')">🎭 Guess the Character</button>
+    </div>
 
-  const outputBox = document.getElementById("output");
-  const guessInput = document.getElementById("guess-input");
-  const guessBtn = document.getElementById("guess-submit-btn");
+    <!-- Game 1 -->
+    <div id="future-prediction" class="screen hidden">
+        <h2>🔮 AI Future Prediction</h2>
+        <input type="text" id="fp-name" placeholder="Your Name" autocomplete="off">
+        <input type="text" id="fp-month" placeholder="Birth Month" autocomplete="off">
+        <input type="text" id="fp-place" placeholder="Favourite Place" autocomplete="off">
+        <button onclick="playFuturePrediction()">Predict My Future</button>
+        <p id="fp-result"></p>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-  let currentGame = null;
-  let characterGameState = { topic: "", round: 0 };
+    <!-- Game 2 -->
+    <div id="ai-lie" class="screen hidden">
+        <h2>🕵 Guess the AI's Lie</h2>
+        <input type="text" id="lie-topic" placeholder="Enter a topic" autocomplete="off">
+        <button onclick="playAiLie()">Generate Statements</button>
+        <div id="lie-statements"></div>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-  function showPanel(panel) {
-    Object.values(panels).forEach(p => p.classList.add("hidden"));
-    panel.classList.remove("hidden");
-    gsap.fromTo(panel, { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" });
-  }
+    <!-- Game 3 -->
+    <div id="guess-character" class="screen hidden">
+        <h2>🎭 Guess the Character</h2>
+        <input type="text" id="char-topic" placeholder="Enter a topic" autocomplete="off">
+        <button onclick="startCharacterGame()">Start Game</button>
+        <div id="char-game" class="hidden">
+            <p id="char-question">Ask your question below:</p>
+            <input type="text" id="char-input" placeholder="Your question" autocomplete="off">
+            <button onclick="askCharacter()">Ask</button>
+            <button onclick="guessCharacter()">Guess Character</button>
+            <p id="char-response"></p>
+            <p id="char-chances"></p>
+        </div>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-  // Main menu buttons
-  document.getElementById("future-btn").addEventListener("click", () => {
-    currentGame = "future";
-    showPanel(panels.future);
-  });
+    <audio id="click-sound" src="https://assets.mixkit.co/sfx/download/mixkit-select-click-1109.wav"></audio>
+    <audio id="transition-sound" src="https://assets.mixkit.co/sfx/download/mixkit-fast-small-sweep-transition-166.wav"></audio>
 
-  document.getElementById("lies-btn").addEventListener("click", () => {
-    currentGame = "lies";
-    showPanel(panels.lie);
-  });
-
-  document.getElementById("character-btn").addEventListener("click", () => {
-    currentGame = "character";
-    showPanel(panels.characterTopic);
-  });
-
-  // Future prediction play
-  document.getElementById("future-play-btn").addEventListener("click", async () => {
-    const name = document.getElementById("name-input").value.trim();
-    const month = document.getElementById("month-input").value.trim();
-    const place = document.getElementById("place-input").value.trim();
-    if (!name || !month || !place) return alert("Fill all fields");
-
-    showPanel(panels.output);
-    outputBox.innerHTML = "Calculating your destiny...";
-
-    const res = await fetch("/api/future-prediction", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, month, place })
-    });
-    const data = await res.json();
-    outputBox.innerHTML = data.prediction;
-  });
-
-  // Lie game start
-  document.getElementById("lie-play-btn").addEventListener("click", async () => {
-    showPanel(panels.output);
-    const res = await fetch("/api/guess-lie");
-    const data = await res.json();
-    outputBox.innerHTML = data.question;
-    guessInput.classList.remove("hidden");
-    guessBtn.classList.remove("hidden");
-  });
-
-  // Character topic start
-  document.getElementById("character-start-btn").addEventListener("click", async () => {
-    characterGameState.topic = document.getElementById("topic-select").value;
-    characterGameState.round = 1;
-
-    showPanel(panels.output);
-    outputBox.innerHTML = `Ask your first question about the mystery character in topic: ${characterGameState.topic}`;
-    guessInput.classList.remove("hidden");
-    guessBtn.classList.remove("hidden");
-
-    await fetch("/api/character-start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: characterGameState.topic })
-    });
-  });
-
-  // Guess or question submit
-  guessBtn.addEventListener("click", async () => {
-    const text = guessInput.value.trim();
-    if (!text) return;
-
-    if (currentGame === "lies") {
-      const res = await fetch("/api/guess-lie", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guess: text })
-      });
-      const data = await res.json();
-      outputBox.innerHTML = data.response;
-    }
-
-    if (currentGame === "character") {
-      const res = await fetch("/api/character-question", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text })
-      });
-      const data = await res.json();
-      outputBox.innerHTML = data.response;
-      characterGameState.round++;
-      if (characterGameState.round > 10 || data.endGame) {
-        guessBtn.disabled = true;
-      }
-    }
-
-    guessInput.value = "";
-  });
-
-  // Reset
-  document.getElementById("reset-btn").addEventListener("click", () => {
-    guessInput.classList.add("hidden");
-    guessBtn.classList.add("hidden");
-    guessBtn.disabled = false;
-    currentGame = null;
-    showPanel(panels.selection);
-  });
-
-  // Start screen
-  showPanel(panels.selection);
-});
+    <script src="script.js"></script>
+</body>
+</html>
