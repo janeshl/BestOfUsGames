@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Stall Games</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+
+<!-- Game Selection Screen -->
+<section id="game-selection" class="panel">
+  <h1>🚀 AI Stall Games</h1>
+  <button id="future-btn" class="game-btn">🔮 AI Future Prediction</button>
+  <button id="lies-btn" class="game-btn">🕵️ Guess the AI’s Lie</button>
+  <button id="character-btn" class="game-btn">🎭 Guess the Character</button>
+</section>
+
+<!-- Future Prediction Form -->
+<section id="future-input-section" class="panel hidden">
+  <h2>🔮 AI Future Prediction</h2>
+  <input id="name-input" type="text" placeholder="Enter your name">
+  <input id="month-input" type="text" placeholder="Enter your birth month">
+  <input id="place-input" type="text" placeholder="Enter your favourite place">
+  <button id="future-play-btn">Predict My Future</button>
+</section>
+
+<!-- Lie Game Section -->
+<section id="lie-section" class="panel hidden">
+  <h2>🕵️ Guess the AI’s Lie</h2>
+  <button id="lie-play-btn">Start Lie Challenge</button>
+</section>
+
+<!-- Character Game - Topic Selection -->
+<section id="character-topic-section" class="panel hidden">
+  <h2>🎭 Guess the Character</h2>
+  <p>Select a topic:</p>
+  <select id="topic-select">
+    <option value="Movies">Movies & TV</option>
+    <option value="Science">Science & Technology</option>
+    <option value="Sports">Sports</option>
+    <option value="Music">Music</option>
+    <option value="History">History</option>
+  </select>
+  <button id="character-start-btn">Start Game</button>
+</section>
+
+<!-- Output Section -->
+<section id="output-section" class="panel hidden">
+  <div id="output"></div>
+  <input id="guess-input" type="text" class="hidden" placeholder="Your guess here">
+  <button id="guess-submit-btn" class="hidden">Submit Guess</button>
+  <button id="reset-btn">Play Again</button>
+</section>
+
+<script src="script.js"></script>
+</body>
+</html>
