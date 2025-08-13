@@ -1,59 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Stall Games</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <meta charset="UTF-8">
+    <title>AI Stall Games</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
 </head>
 <body>
+    <div id="main-menu" class="screen">
+        <h1 class="neon-title">⚡ AI Stall Games ⚡</h1>
+        <button class="game-btn" onclick="showScreen('future-prediction')">🔮 AI Future Prediction</button>
+        <button class="game-btn" onclick="showScreen('ai-lie')">🕵 Guess the AI's Lie</button>
+        <button class="game-btn" onclick="showScreen('guess-character')">🎭 Guess the Character</button>
+    </div>
 
-<!-- Game Selection Screen -->
-<section id="game-selection" class="panel">
-  <h1>🚀 AI Stall Games</h1>
-  <button id="future-btn" class="game-btn">🔮 AI Future Prediction</button>
-  <button id="lies-btn" class="game-btn">🕵️ Guess the AI’s Lie</button>
-  <button id="character-btn" class="game-btn">🎭 Guess the Character</button>
-</section>
+    <!-- Game 1 -->
+    <div id="future-prediction" class="screen hidden">
+        <h2>🔮 AI Future Prediction</h2>
+        <input type="text" id="fp-name" placeholder="Your Name" autocomplete="off">
+        <input type="text" id="fp-month" placeholder="Birth Month" autocomplete="off">
+        <input type="text" id="fp-place" placeholder="Favourite Place" autocomplete="off">
+        <button onclick="playFuturePrediction()">Predict My Future</button>
+        <p id="fp-result"></p>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-<!-- Future Prediction Form -->
-<section id="future-input-section" class="panel hidden">
-  <h2>🔮 AI Future Prediction</h2>
-  <input id="name-input" type="text" placeholder="Enter your name">
-  <input id="month-input" type="text" placeholder="Enter your birth month">
-  <input id="place-input" type="text" placeholder="Enter your favourite place">
-  <button id="future-play-btn">Predict My Future</button>
-</section>
+    <!-- Game 2 -->
+    <div id="ai-lie" class="screen hidden">
+        <h2>🕵 Guess the AI's Lie</h2>
+        <input type="text" id="lie-topic" placeholder="Enter a topic" autocomplete="off">
+        <button onclick="playAiLie()">Generate Statements</button>
+        <div id="lie-statements"></div>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-<!-- Lie Game Section -->
-<section id="lie-section" class="panel hidden">
-  <h2>🕵️ Guess the AI’s Lie</h2>
-  <button id="lie-play-btn">Start Lie Challenge</button>
-</section>
+    <!-- Game 3 -->
+    <div id="guess-character" class="screen hidden">
+        <h2>🎭 Guess the Character</h2>
+        <input type="text" id="char-topic" placeholder="Enter a topic" autocomplete="off">
+        <button onclick="startCharacterGame()">Start Game</button>
+        <div id="char-game" class="hidden">
+            <p id="char-question">Ask your question below:</p>
+            <input type="text" id="char-input" placeholder="Your question" autocomplete="off">
+            <button onclick="askCharacter()">Ask</button>
+            <button onclick="guessCharacter()">Guess Character</button>
+            <p id="char-response"></p>
+            <p id="char-chances"></p>
+        </div>
+        <button class="back-btn" onclick="showScreen('main-menu')">⬅ Back</button>
+    </div>
 
-<!-- Character Game - Topic Selection -->
-<section id="character-topic-section" class="panel hidden">
-  <h2>🎭 Guess the Character</h2>
-  <p>Select a topic:</p>
-  <select id="topic-select">
-    <option value="Movies">Movies & TV</option>
-    <option value="Science">Science & Technology</option>
-    <option value="Sports">Sports</option>
-    <option value="Music">Music</option>
-    <option value="History">History</option>
-  </select>
-  <button id="character-start-btn">Start Game</button>
-</section>
+    <audio id="click-sound" src="https://assets.mixkit.co/sfx/download/mixkit-select-click-1109.wav"></audio>
+    <audio id="transition-sound" src="https://assets.mixkit.co/sfx/download/mixkit-fast-small-sweep-transition-166.wav"></audio>
 
-<!-- Output Section -->
-<section id="output-section" class="panel hidden">
-  <div id="output"></div>
-  <input id="guess-input" type="text" class="hidden" placeholder="Your guess here">
-  <button id="guess-submit-btn" class="hidden">Submit Guess</button>
-  <button id="reset-btn">Play Again</button>
-</section>
-
-<script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
