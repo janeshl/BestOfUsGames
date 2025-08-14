@@ -1,29 +1,174 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>5-Round Quiz</title>
-  <link rel="stylesheet" href="styling.css" />
-</head>
-<body class="container">
-  <h2 class="section-title">5-Round Quiz</h2>
-  <article class="card">
-    <form id="quiz-start" class="game-form" autocomplete="off">
-      <input name="topic" placeholder="Enter a topic (e.g., World History, Cricket, Marvel)" required autocomplete="off" autocapitalize="none" spellcheck="false" />
-      <button class="btn" type="submit"><span>Start Quiz</span></button>
-    </form>
+// Budget Glam Builder — 180s, 30 items, 10-per-page, min pick = 12
+(function(){
+  const card = document.getElementById('glam-card');
+  if(!card) return;
 
-    <div id="quiz-area" style="display:none">
-      <div class="badge" id="quiz-status">Question 1 of 5</div>
-      <div id="quiz-question" class="card-copy" style="margin:10px 0 6px"></div>
-      <div id="quiz-options" class="list"></div>
-      <pre id="quiz-expl" class="result" style="display:none"></pre>
-      <div id="quiz-next" style="margin-top:10px"></div>
-    </div>
-  </article>
+  const startForm = document.getElementById('glam-start');
+  const hud = document.getElementById('glam-hud');
+  const timerEl = document.getElementById('glam-timer');
+  const budgetEl = document.getElementById('glam-budget');
+  const spendEl = document.getElementById('glam-spend');
+  const countEl = document.getElementById('glam-count');
+  const pageEl = document.getElementById('glam-page');
+  const listEl = document.getElementById('glam-list');
+  const pager = document.getElementById('glam-pager');
+  const prevBtn = document.getElementById('glam-prev');
+  const nextBtn = document.getElementById('glam-next');
+  const actions = document.getElementById('glam-actions');
+  const finishBtn = document.getElementById('glam-finish');
+  const out = document.getElementById('glam-out');
 
-  <div style="margin-top:24px;display:flex;justify-content:flex-start;"><a href="./games.html" class="back">← Back</a></div>
-  <script src="script.js"></script>
-</body>
-</html>
+  let token = null;
+  let budget = 0;
+  let items = [];
+  let selected = new Set();
+  let secsLeft = 180;
+  let timer = null;
+  let startedAt = 0;
+  let finished = false;
+
+  // pagination
+  const pageSize = 10;
+  let page = 0; // 0-based
+
+  const minPick = 12;
+
+  function show(el){ el && el.classList.remove('hidden'); }
+  function hide(el){ el && el.classList.add('hidden'); }
+
+  function spendTotal(){
+    return Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0);
+  }
+
+  function updateHUD(){
+    spendEl.textContent = 'Spend: ₹' + spendTotal();
+    countEl.textContent = 'Selected: ' + selected.size + '/' + minPick;
+    pageEl.textContent = 'Page: ' + (page + 1);
+  }
+
+  function renderList(){
+    listEl.innerHTML = '';
+    const start = page * pageSize;
+    const end = Math.min(items.length, start + pageSize);
+    for (let i = start; i < end; i++) {
+      const it = items[i];
+      const row = document.createElement('label');
+      row.className = 'option';
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '24px 1fr auto';
+      row.style.alignItems = 'center';
+      row.style.gap = '10px';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.has(i);
+      cb.onchange = () => {
+        if (cb.checked) {
+          selected.add(i);
+        } else {
+          selected.delete(i);
+        }
+        // prevent overspend
+        const total = spendTotal();
+        if (total > budget) {
+          selected.delete(i);
+          cb.checked = false;
+        }
+        updateHUD();
+      };
+
+      const text = document.createElement('div');
+      text.innerHTML = `<b>${it.name}</b><br><small>${it.category} • ${it.ecoFriendly ? '🌱 Eco' : '—'}</small><br>${it.description}`;
+
+      const price = document.createElement('div');
+      price.textContent = '₹' + it.price;
+
+      row.appendChild(cb);
+      row.appendChild(text);
+      row.appendChild(price);
+      listEl.appendChild(row);
+    }
+
+    // enable/disable pager buttons
+    prevBtn.disabled = page === 0;
+    nextBtn.disabled = (page + 1) * pageSize >= items.length;
+
+    updateHUD();
+  }
+
+  function tick(){
+    secsLeft -= 1;
+    if (secsLeft < 0) { finish(true); return; }
+    timerEl.textContent = 'Time: ' + secsLeft + 's';
+  }
+
+  function finish(auto=false){
+    if(finished) return; finished = true;
+    clearInterval(timer);
+    const timeTaken = Math.min(999, Math.round((Date.now() - startedAt)/1000));
+    const selectedIndices = Array.from(selected);
+    out.textContent = 'Scoring your kit...';
+    fetch('/api/glam/score', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token, selectedIndices, timeTaken })
+    }).then(r=>r.json()).then(json=>{
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      const head = json.win ? '🎉 You win!' : '❌ Not this time';
+      const details = [
+        `${head}  Score: ${json.score}/100`,
+        `Budget: ₹${json.budgetInr} • Spend: ₹${json.totalSpend} • Time: ${json.timeTaken}s`,
+        '',
+        '✅ Positives:',
+        ...(json.positives || []).map(p => '• ' + p),
+        '',
+        '⚠️ Areas to improve:',
+        ...(json.negatives || []).map(n => '• ' + n),
+        '',
+        json.summary || ''
+      ].join('\n');
+      out.textContent = details;
+      hide(actions); hide(pager);
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(c=>c.disabled=true);
+    }).catch(()=> out.textContent = 'Network error. Please try again.');
+  }
+
+  // Start game
+  startForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    out.textContent = 'Fetching your glam bucket...';
+    finished = false; selected.clear(); secsLeft = 180; page = 0;
+    const gender = startForm.gender.value;
+    const budgetInr = Math.max(10000, Number(startForm.budget.value));
+    try{
+      const res = await fetch('/api/glam/start', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ gender, budgetInr })
+      });
+      const json = await res.json();
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      token = json.token; budget = json.budgetInr; items = json.items || [];
+      budgetEl.textContent = 'Budget: ₹' + budget;
+      show(hud); show(listEl); show(actions); show(pager);
+      out.textContent = `Pick at least ${minPick} products within budget before the timer ends!`;
+      // start timer
+      clearInterval(timer);
+      secsLeft = 180; timerEl.textContent = 'Time: ' + secsLeft + 's';
+      startedAt = Date.now();
+      timer = setInterval(tick, 1000);
+      renderList();
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+
+  // Pager
+  prevBtn.addEventListener('click', ()=>{
+    if(page > 0){ page -= 1; renderList(); }
+  });
+  nextBtn.addEventListener('click', ()=>{
+    if((page + 1) * pageSize < items.length){ page += 1; renderList(); }
+  });
+
+  // Finish
+  finishBtn.addEventListener('click', ()=>finish(false));
+})();
