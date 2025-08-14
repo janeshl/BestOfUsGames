@@ -166,24 +166,23 @@ ${qa.map((a, i) => `Q${i + 1}: ${a.q}\nA${i + 1}: ${a.a ? "Yes" : "No"}`).join("
 JSON only.`,
     },
   ],
-     glamSuggest: ({ gender, budgetInr }) => [
+       glamSuggest: ({ gender, budgetInr }) => [
     {
       role: "system",
-      content: `Suggest 20 skincare/beauty products appropriate for the specified gender (or unisex).
+      content: `Suggest 30 skincare/beauty products appropriate for the specified gender (or unisex).
 Rules:
 - Currency: INR
-- Each item must individually cost <= the given budget
+- Each item price should be reasonable for Indian market; can vary widely but keep realistic.
 - Cover diverse uses: cleanser, moisturizer, SPF/sunscreen, serum, exfoliant, toner/essence, face mask, lip care, hand/body care, hair care, spot treatment, eye cream, primer, etc.
-- Include both everyday basics and a few extras; avoid duplicates in name.
+- Include both everyday basics and a few extras; avoid duplicate names.
 - Keep descriptions <= 15 words.
-- Prefer accessible Indian-market pricing; avoid luxury extremes.
-- Mark ecoFriendly=true for products with recyclable packaging, mineral filters, clean formulations, or refill options.
+- Mark ecoFriendly=true for recyclable/mineral-filter/clean-formulation/refill options.
 
 Return STRICT JSON:
 {
   "items": [
     { "name": string, "price": number, "description": string, "category": string, "ecoFriendly": boolean }
-    x20
+    x30
   ]
 }`
     },
@@ -200,17 +199,17 @@ JSON only.`
       role: "system",
       content: `Score a player's beauty kit (0-100) based on:
 - Budget utilization (closer to budget without exceeding is better)
-- Coverage of protection & care: sunscreen/SPF, cleanser, moisturizer, serum/treatment; plus optional lip/body/hair
-- Timing (<=60s is best; small penalty if slightly over)
-- Synergy/combination (avoids redundant roles; complements across AM/PM)
+- Coverage of protection & care: sunscreen/SPF, cleanser, moisturizer, serum/treatment; plus extras (lip/body/hair)
+- Timing (<=180s is best; small penalty if slightly over)
+- Synergy/combination (avoid redundant roles; cover AM/PM)
 - Eco friendliness (higher share of ecoFriendly items gets bonus)
 
 Output STRICT JSON:
 {
-  "score": number,           // 0..100
-  "positives": string[],     // 3-6 bullets
-  "negatives": string[],     // 3-6 bullets
-  "summary": string          // 1-2 sentences, plain text
+  "score": number,
+  "positives": string[],
+  "negatives": string[],
+  "summary": string
 }`
     },
     {
@@ -596,72 +595,48 @@ app.post("/api/fpp/answers", async (req, res) => {
   }
 });
 
-app.post("/api/fpp/guess", (req, res) => {
-  try {
-    const { token, guess } = req.body ?? {};
-    const s = sessions.get(token);
-    if (!s || s.type !== "fpp")
-      return res.status(400).json({ ok: false, error: "Session not found/expired." });
-    if (typeof guess !== "number" || !isFinite(guess)) {
-      return res.status(400).json({ ok: false, error: "Provide numeric 'guess'." });
-    }
-    if (typeof s.predictedPrice !== "number" || !isFinite(s.predictedPrice)) {
-      return res.status(400).json({ ok: false, error: "Prediction not ready. Submit answers first." });
-    }
-
-    const ai = s.predictedPrice;
-    const tolerance = 0.6 * Math.abs(ai); // within ±60%
-    const win = Math.abs(guess - ai) <= tolerance;
-
-    sessions.delete(token);
-
-    res.json({
-      ok: true,
-      win,
-      playerGuess: guess,
-      aiPrice: ai,
-      currency: s.currency,
-      message: win ? "🎉 Great guess! You matched within 60%." : "❌ Not quite. Better luck next time!",
-      explanation: s.explanation,
-    });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
 /* ========================
    Game 6: Budget Glam Builder
-   Flow:
-   - POST /api/glam/start { gender, budgetInr }
-   - POST /api/glam/score { token, selectedIndices:number[], timeTaken:number }
+   - Start: min budget ₹10,000, 30 items
+   - Score: min selection 12, timer 180s
 ======================== */
 app.post("/api/glam/start", async (req, res) => {
   try {
     const { gender = "Unisex", budgetInr } = req.body ?? {};
-    const budget = Math.max(500, Number(budgetInr) || 2500); // sensible floor
+    const budget = Math.max(10000, Number(budgetInr) || 15000); // new minimum ₹10,000
 
-    // Default fallback list (if model JSON fails)
-    let items = Array.from({ length: 20 }).map((_, i) => ({
+    // Fallback list if model JSON fails (30 items)
+    let items = Array.from({ length: 30 }).map((_, i) => ({
       name: `Starter Item ${i + 1}`,
-      price: Math.floor(200 + Math.random() * 800),
+      price: Math.floor(250 + Math.random() * 1500),
       description: "A practical everyday pick.",
-      category: ["Cleanser","Moisturizer","Sunscreen","Serum","Lip Care","Body","Hair","Mask","Toner","Eye Cream"][i % 10],
+      category: ["Cleanser","Moisturizer","Sunscreen","Serum","Lip Care","Body","Hair","Mask","Toner","Eye Cream","Primer","Exfoliant"][i % 12],
       ecoFriendly: i % 3 === 0
     }));
 
     try {
-      const raw = await chatCompletion(PROMPTS.glamSuggest({ gender, budgetInr: budget }), 0.5, 1000);
+      const raw = await chatCompletion(PROMPTS.glamSuggest({ gender, budgetInr: budget }), 0.5, 1600);
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.items) && parsed.items.length === 20) {
-        // ensure numbers and <= budget
+      if (Array.isArray(parsed.items) && parsed.items.length >= 20) {
         items = parsed.items
+          .slice(0, 30)
           .map(it => ({
             name: String(it.name || "").slice(0, 80),
-            price: Math.min(budget, Math.max(50, Number(it.price) || 0)),
+            price: Math.max(50, Number(it.price) || 0),
             description: String(it.description || "").slice(0, 120),
             category: String(it.category || "Other").slice(0, 40),
             ecoFriendly: !!it.ecoFriendly
-          }))
-          .slice(0, 20);
+          }));
+        // Pad to exactly 30 if LLM returned < 30
+        while (items.length < 30) {
+          items.push({
+            name: `Extra Item ${items.length + 1}`,
+            price: Math.floor(300 + Math.random() * 1200),
+            description: "Useful addition.",
+            category: "Other",
+            ecoFriendly: Math.random() < 0.3
+          });
+        }
       }
     } catch {}
 
@@ -694,33 +669,32 @@ app.post("/api/glam/score", async (req, res) => {
     const total = selected.reduce((sum, it) => sum + Number(it.price || 0), 0);
     const secs = Math.max(0, Number(timeTaken) || 0);
 
-    // Basic validations (game rules)
-    if (selected.length < 10) {
+    // New minimum picks: 12
+    if (selected.length < 12) {
+      sessions.delete(token);
       return res.json({
         ok: true,
         done: true,
         win: false,
-        autoFinished: secs >= 60,
+        autoFinished: secs >= 180,
         score: 0,
-        summary: "You must pick at least 10 products.",
+        summary: "You must pick at least 12 products.",
         budgetInr: s.budgetInr,
         totalSpend: total,
+        timeTaken: secs,
         positives: [],
-        negatives: ["Picked fewer than 10 products"]
+        negatives: ["Picked fewer than 12 products"]
       });
     }
-    if (total > s.budgetInr) {
-      // Over budget — still score via AI but mark likely fail
-    }
 
-    // Ask AI to score
+    // Score with AI
     let scored = { score: 0, positives: [], negatives: [], summary: "No summary." };
     try {
       const raw = await chatCompletion(PROMPTS.glamScore({
         budgetInr: s.budgetInr,
         selected,
         timeTaken: secs
-      }), 0.4, 900);
+      }), 0.4, 1200);
       const parsed = JSON.parse(raw);
       if (typeof parsed.score === "number") scored.score = Math.max(0, Math.min(100, parsed.score));
       if (Array.isArray(parsed.positives)) scored.positives = parsed.positives.slice(0, 6);
