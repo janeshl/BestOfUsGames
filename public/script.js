@@ -426,177 +426,107 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
 })();
 
 // Budget Glam Builder — 180s, 30 items, 10-per-page, min pick = 12
+// Glam Builder
 (function(){
-  const card = document.getElementById('glam-card');
-  if(!card) return;
+  const form = document.querySelector('#glam-start');
+  if(!form) return;
 
-  const startForm = document.getElementById('glam-start');
-  const hud = document.getElementById('glam-hud');
-  const timerEl = document.getElementById('glam-timer');
-  const budgetEl = document.getElementById('glam-budget');
-  const spendEl = document.getElementById('glam-spend');
-  const countEl = document.getElementById('glam-count');
-  const pageEl = document.getElementById('glam-page');
-  const listEl = document.getElementById('glam-list');
-  const pager = document.getElementById('glam-pager');
-  const prevBtn = document.getElementById('glam-prev');
-  const nextBtn = document.getElementById('glam-next');
-  const actions = document.getElementById('glam-actions');
-  const finishBtn = document.getElementById('glam-finish');
-  const out = document.getElementById('glam-out');
+  const gameDiv   = document.querySelector('#glam-game');
+  const budgetEl  = document.querySelector('#glam-budget');
+  const timerEl   = document.querySelector('#glam-timer');
+  const productsEl= document.querySelector('#glam-products');
+  const resultEl  = document.querySelector('#glam-result');
+  const prevBtn   = document.querySelector('#glam-prev');
+  const nextBtn   = document.querySelector('#glam-next');
+  const finishBtn = document.querySelector('#glam-finish');
 
-  let token = null;
-  let budget = 0;
-  let items = [];
+  let sessionId = null;
+  let products = [];
+  let page = 0;
   let selected = new Set();
-  let secsLeft = 180;
-  let timer = null;
-  let startedAt = 0;
-  let finished = false;
+  let tHandle = null;
+  let timeLeft = 180;
 
-  // pagination
-  const pageSize = 10;
-  let page = 0; // 0-based
-
-  const minPick = 12;
-
-  function show(el){ el && el.classList.remove('hidden'); }
-  function hide(el){ el && el.classList.add('hidden'); }
-
-  function spendTotal(){
-    return Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0);
-  }
-
-  function updateHUD(){
-    spendEl.textContent = 'Spend: ₹' + spendTotal();
-    countEl.textContent = 'Selected: ' + selected.size + '/' + minPick;
-    pageEl.textContent = 'Page: ' + (page + 1);
-  }
-
-  function renderList(){
-    listEl.innerHTML = '';
-    const start = page * pageSize;
-    const end = Math.min(items.length, start + pageSize);
-    for (let i = start; i < end; i++) {
-      const it = items[i];
-      const row = document.createElement('label');
-      row.className = 'option';
-      row.style.display = 'grid';
-      row.style.gridTemplateColumns = '24px 1fr auto';
-      row.style.alignItems = 'center';
-      row.style.gap = '10px';
-
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = selected.has(i);
-      cb.onchange = () => {
-        if (cb.checked) {
-          selected.add(i);
-        } else {
-          selected.delete(i);
-        }
-        // prevent overspend
-        const total = spendTotal();
-        if (total > budget) {
-          selected.delete(i);
-          cb.checked = false;
-        }
-        updateHUD();
+  function renderPage(){
+    productsEl.innerHTML = '';
+    const start = page*10, end = start+10;
+    products.slice(start,end).forEach((p,idx)=>{
+      const d = document.createElement('div');
+      d.className = 'option';
+      d.textContent = `${p.name} — ₹${p.price} (${p.desc})`;
+      d.style.cursor = 'pointer';
+      if(selected.has(start+idx)) d.style.background='rgba(80,200,120,.2)';
+      d.onclick = ()=>{
+        if(selected.has(start+idx)) selected.delete(start+idx);
+        else selected.add(start+idx);
+        renderPage();
       };
-
-      const text = document.createElement('div');
-      text.innerHTML = `<b>${it.name}</b><br><small>${it.category} • ${it.ecoFriendly ? '🌱 Eco' : '—'}</small><br>${it.description}`;
-
-      const price = document.createElement('div');
-      price.textContent = '₹' + it.price;
-
-      row.appendChild(cb);
-      row.appendChild(text);
-      row.appendChild(price);
-      listEl.appendChild(row);
-    }
-
-    // enable/disable pager buttons
-    prevBtn.disabled = page === 0;
-    nextBtn.disabled = (page + 1) * pageSize >= items.length;
-
-    updateHUD();
+      productsEl.appendChild(d);
+    });
+    prevBtn.style.display = (page>0)?'inline-block':'none';
+    nextBtn.style.display = (end<products.length)?'inline-block':'none';
   }
 
-  function tick(){
-    secsLeft -= 1;
-    if (secsLeft < 0) { finish(true); return; }
-    timerEl.textContent = 'Time: ' + secsLeft + 's';
+  function clearTimer(){ if(tHandle) clearInterval(tHandle); tHandle=null; }
+  function startTimer(){
+    clearTimer();
+    timerEl.textContent = `⏱ ${timeLeft}s`;
+    tHandle = setInterval(()=>{
+      timeLeft -= 1;
+      timerEl.textContent = `⏱ ${timeLeft}s`;
+      if(timeLeft <= 0){ clearTimer(); finishGame(); }
+    },1000);
   }
 
-  function finish(auto=false){
-    if(finished) return; finished = true;
-    clearInterval(timer);
-    const timeTaken = Math.min(999, Math.round((Date.now() - startedAt)/1000));
-    const selectedIndices = Array.from(selected);
-    out.textContent = 'Scoring your kit...';
-    fetch('/api/glam/score', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ token, selectedIndices, timeTaken })
-    }).then(r=>r.json()).then(json=>{
-      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      const head = json.win ? '🎉 You win!' : '❌ Not this time';
-      const details = [
-        `${head}  Score: ${json.score}/100`,
-        `Budget: ₹${json.budgetInr} • Spend: ₹${json.totalSpend} • Time: ${json.timeTaken}s`,
-        '',
-        '✅ Positives:',
-        ...(json.positives || []).map(p => '• ' + p),
-        '',
-        '⚠️ Areas to improve:',
-        ...(json.negatives || []).map(n => '• ' + n),
-        '',
-        json.summary || ''
-      ].join('\n');
-      out.textContent = details;
-      hide(actions); hide(pager);
-      listEl.querySelectorAll('input[type="checkbox"]').forEach(c=>c.disabled=true);
-    }).catch(()=> out.textContent = 'Network error. Please try again.');
-  }
-
-  // Start game
-  startForm.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    out.textContent = 'Fetching your glam bucket...';
-    finished = false; selected.clear(); secsLeft = 180; page = 0;
-    const gender = startForm.gender.value;
-    const budgetInr = Math.max(10000, Number(startForm.budget.value));
+  async function finishGame(){
+    clearTimer();
     try{
-      const res = await fetch('/api/glam/start', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ gender, budgetInr })
+      const res = await fetch('/api/glam/finish',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ sessionId, picks: Array.from(selected) })
       });
       const json = await res.json();
-      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      token = json.token; budget = json.budgetInr; items = json.items || [];
-      budgetEl.textContent = 'Budget: ₹' + budget;
-      show(hud); show(listEl); show(actions); show(pager);
-      out.textContent = `Pick at least ${minPick} products within budget before the timer ends!`;
-      // start timer
-      clearInterval(timer);
-      secsLeft = 180; timerEl.textContent = 'Time: ' + secsLeft + 's';
-      startedAt = Date.now();
-      timer = setInterval(tick, 1000);
-      renderList();
-    }catch{
-      out.textContent = 'Network error. Please try again.';
-    }
-  });
+      if(json.ok){
+        resultEl.style.display='block';
+        if(json.win){
+          resultEl.textContent = `🎉 Congrats! Score: ${json.score}/100\n\nHighlights:\n${json.points}`;
+        } else {
+          resultEl.textContent = `❌ Failed. Score: ${json.score}/100\n\nReasons:\n${json.points}`;
+        }
+      } else {
+        resultEl.style.display='block';
+        resultEl.textContent = 'Error: '+json.error;
+      }
+    }catch{ resultEl.textContent='Network error.'; }
+  }
 
-  // Pager
-  prevBtn.addEventListener('click', ()=>{
-    if(page > 0){ page -= 1; renderList(); }
-  });
-  nextBtn.addEventListener('click', ()=>{
-    if((page + 1) * pageSize < items.length){ page += 1; renderList(); }
-  });
+  prevBtn.onclick=()=>{ if(page>0){ page--; renderPage(); } };
+  nextBtn.onclick=()=>{ if((page+1)*10<products.length){ page++; renderPage(); } };
+  finishBtn.onclick=(e)=>{ e.preventDefault(); finishGame(); };
 
-  // Finish
-  finishBtn.addEventListener('click', ()=>finish(false));
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const gender=form.gender.value;
+    const budget=Number(form.budget.value);
+    productsEl.innerHTML='Loading...';
+    try{
+      const res=await fetch('/api/glam/start',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({gender,budget})
+      });
+      const json=await res.json();
+      if(!json.ok){ productsEl.innerHTML='Error: '+json.error; return; }
+      sessionId=json.sessionId;
+      products=json.products;
+      budgetEl.textContent=`Budget: ₹${budget}`;
+      gameDiv.style.display='block';
+      page=0; selected.clear(); timeLeft=180;
+      renderPage(); startTimer();
+    }catch{ productsEl.innerHTML='Network error'; }
+  });
 })();
+
+
 
