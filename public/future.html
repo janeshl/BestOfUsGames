@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Predict the Future</title>
+  <link rel="stylesheet" href="styling.css" />
+</head>
+<body class="container">
+  <a href="./index.html" class="back"><span class="btn-icon">←</span> Back</a>
+  <h2 class="section-title">Predict the Future</h2>
+
+  <article class="card">
+    <form id="f-form" class="game-form">
+      <div class="row">
+        <input name="name" placeholder="Your name" required />
+        <select name="birthMonth" required>
+          <option value="" disabled selected>Birth month</option>
+          <option>January</option><option>February</option><option>March</option><option>April</option>
+          <option>May</option><option>June</option><option>July</option><option>August</option>
+          <option>September</option><option>October</option><option>November</option><option>December</option>
+        </select>
+        <input name="place" placeholder="Favorite place" required />
+      </div>
+      <button class="btn" type="submit"><span>Predict</span><span class="btn-icon">✦</span></button>
+    </form>
+    <pre id="f-out" class="result" style="min-height:100px"></pre>
+  </article>
+
+<script>
+  const form = document.getElementById('f-form');
+  const out = document.getElementById('f-out');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    out.textContent = "🔮 Summoning prophecies...";
+    const data = { name: form.name.value, birthMonth: form.birthMonth.value, favoritePlace: form.place.value };
+    const res = await fetch('/api/predict-future', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const json = await res.json();
+    out.textContent = json.ok ? json.content : ('Error: ' + json.error);
+  });
+</script>
+</body>
+</html>
