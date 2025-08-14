@@ -11,35 +11,22 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama3-70b-8192";
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-if (!GROQ_API_KEY) {
-  console.warn("⚠️  GROQ_API_KEY is not set. API routes will fail until you provide it.");
-}
+if (!GROQ_API_KEY) console.warn("⚠️  GROQ_API_KEY not set.");
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static("public"));
+app.use("/api/", rateLimit({ windowMs: 60*1000, max: 30 }));
 
-// Rate limit for API
-const limiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
-app.use("/api/", limiter);
-
-// Simple in-memory sessions for Character game
 const sessions = new Map();
 const makeId = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 10);
 
-// Helper to call Groq (OpenAI-compatible chat)
 async function chatCompletion(messages, temperature = 0.7, max_tokens = 256) {
   const res = await fetch(GROQ_URL, {
     method: "POST",
-    headers: {
-      "Authorization": `Bearer ${GROQ_API_KEY}`,
-      "Content-Type": "application/json"
-    },
+    headers: { "Authorization": `Bearer ${GROQ_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: GROQ_MODEL, messages, temperature, max_tokens })
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Groq API ${res.status}: ${t}`);
-  }
+  if(!res.ok){ const t = await res.text(); throw new Error(`Groq API ${res.status}: ${t}`); }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content?.trim() ?? "";
 }
@@ -54,9 +41,7 @@ app.post("/api/predict-future", async (req, res) => {
     ];
     const content = await chatCompletion(messages, 0.9, 180);
     res.json({ ok: true, content });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 /* ========== Game 2: Spot the lie ========== */
@@ -68,17 +53,11 @@ app.post("/api/lie/generate", async (req, res) => {
       { role: "user", content: `Topic: ${topic}. JSON only.` }
     ];
     const raw = await chatCompletion(messages, 0.6, 300);
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch {
-      parsed = { statements: [raw, "Option B", "Option C", "Option D"], lieIndex: 1, hint: "One of these looks suspicious." };
-    }
+    let parsed; try { parsed = JSON.parse(raw); } catch { parsed = { statements:[raw,"Option B","Option C","Option D"], lieIndex:1, hint:"One of these looks suspicious." }; }
     const token = makeId();
     sessions.set(token, { lieIndex: parsed.lieIndex, statements: parsed.statements, topic, createdAt: Date.now() });
     res.json({ ok: true, token, statements: parsed.statements, hint: parsed.hint });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 app.post("/api/lie/verify", (req, res) => {
@@ -89,9 +68,7 @@ app.post("/api/lie/verify", (req, res) => {
   res.json({ ok: true, correct, answer: s.lieIndex, statements: s.statements });
 });
 
-
-/* ========== Game 3 (revised): Player asks questions, AI answers ========== */
-/** Start session: AI secretly picks a famous person/character from topic. */
+/* ========== Game 3: Conversational character game (player asks; AI detects guesses) ========== */
 app.post("/api/character/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
@@ -99,73 +76,69 @@ app.post("/api/character/start", async (req, res) => {
       { role: "system", content: "Pick a single well-known person or fictional character related to the user's topic. Return strict JSON {name:string}. Do not include any other text." },
       { role: "user", content: `Topic: ${topic}.` }
     ];
-    const raw = await chatCompletion(chooseMessages, 0.7, 40);
-    let name = "a famous person";
-    try { name = JSON.parse(raw).name; } catch {}
-
+    const raw = await chatCompletion(chooseMessages, 0.7, 50);
+    let name = "a famous person"; try { name = JSON.parse(raw).name; } catch {}
     const id = makeId();
     sessions.set(id, { type: "character", topic, name, rounds: 0, history: [], createdAt: Date.now() });
-    res.json({ ok: true, sessionId: id, message: "Think of good yes/no questions about the secret character. You have 10 rounds!" });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+    res.json({ ok: true, sessionId: id, message: "Ask yes/no questions about the secret character. You have 10 rounds. If you make a natural guess, I'll tell you if you're right." });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-/** Turn: player asks a question and may also guess the character */
 app.post("/api/character/turn", async (req, res) => {
   try {
-    const { sessionId, question, guess } = req.body ?? {};
+    const { sessionId, text } = req.body ?? {};
     const s = sessions.get(sessionId);
     if (!s) return res.status(400).json({ ok: false, error: "Session not found." });
 
-    // If a guess is provided, check first for an early win
-    if (guess && guess.trim().length) {
-      const correct = guess.trim().toLowerCase() === s.name.trim().toLowerCase();
+    const qa = s.history.map((h,i)=>`Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join("\n");
+
+    // Ask the model to BOTH answer the user's message and classify if it was a guess.
+    const messages = [
+      { role: "system", content: `You are running a 20-questions style game. The secret answer is "${s.name}".
+Respond to the user's message as a short yes/no style answer (<= 15 words), without revealing the name.
+Also determine if the user is explicitly making a guess of the character's name.
+Return strict JSON with keys:
+- answer: string (concise response to the message)
+- isGuess: boolean (true if the user is making an explicit guess of the character's name)
+- guessedName: string (the name they guessed, or empty if none)
+Do NOT include extra text.` },
+      { role: "user", content: `Previous Q&A (for context):\n${qa}\n\nUser message: ${text}` }
+    ];
+
+    let parsed = { answer: "Okay.", isGuess: false, guessedName: "" };
+    try {
+      const raw = await chatCompletion(messages, 0.3, 120);
+      parsed = JSON.parse(raw);
+    } catch {}
+
+    // Always increment round for each user message
+    s.rounds += 1;
+
+    // If it's a guess, check correctness
+    if (parsed.isGuess && parsed.guessedName) {
+      const correct = parsed.guessedName.trim().toLowerCase() === s.name.trim().toLowerCase();
+      s.history.push({ q: text || "", a: parsed.answer || "" });
       if (correct) {
         sessions.delete(sessionId);
         return res.json({ ok: true, done: true, win: true, name: s.name, answer: "🎯 Correct guess!" });
       }
+    } else {
+      // Normal question
+      s.history.push({ q: text || "", a: parsed.answer || "" });
     }
 
-    // Build an answer to the player's question WITHOUT revealing the character
-    const qaContext = s.history
-      .map((h, i) => `Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`)
-      .join("\n");
-
-    const answerMessages = [
-      { role: "system", content:
-        `You are answering yes/no questions about a secret character: "${s.name}".
-Rules:
-- Answer the user's question truthfully as short "Yes/No" plus up to ~10 words of context.
-- Never reveal, spell, hint at, or anagram the character name.
-- If asked directly "are you <name>" or similar, deflect with a playful hint but do not reveal.
-- Keep answers under 15 words.`
-      },
-      { role: "user", content: `Previous Q&A:
-${qaContext}
-
-User question: ${question || ""}` }
-    ];
-    const aiAnswer = await chatCompletion(answerMessages, 0.3, 60);
-
-    // Update rounds and history
-    s.rounds += 1;
-    s.history.push({ q: question || "", a: aiAnswer || "" });
-
+    // End after 10 rounds
     if (s.rounds >= 10) {
       const reveal = `Out of rounds! The character was: ${s.name}.`;
       sessions.delete(sessionId);
-      return res.json({ ok: true, done: true, win: false, name: s.name, answer: aiAnswer, message: reveal });
+      return res.json({ ok: true, done: true, win: false, name: s.name, answer: parsed.answer, message: reveal });
     }
 
-    const roundsLeft = 10 - s.rounds;
-    res.json({ ok: true, done: false, answer: aiAnswer, roundsLeft });
+    res.json({ ok: true, done: false, answer: parsed.answer, roundsLeft: 10 - s.rounds });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-
-app.listen(PORT, () => {
-  console.log(`✅ http://localhost:${PORT}`);
-});
+app.get("/healthz", (_req, res) => res.json({ ok: true }));
+app.listen(PORT, () => console.log(`✅ http://localhost:${PORT}`));
