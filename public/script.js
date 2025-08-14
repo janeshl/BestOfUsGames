@@ -369,7 +369,7 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   });
 })();
 
-// Budget Glam Builder
+// Budget Glam Builder — 180s, 30 items, 10-per-page, min pick = 12
 (function(){
   const card = document.getElementById('glam-card');
   if(!card) return;
@@ -380,7 +380,11 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   const budgetEl = document.getElementById('glam-budget');
   const spendEl = document.getElementById('glam-spend');
   const countEl = document.getElementById('glam-count');
+  const pageEl = document.getElementById('glam-page');
   const listEl = document.getElementById('glam-list');
+  const pager = document.getElementById('glam-pager');
+  const prevBtn = document.getElementById('glam-prev');
+  const nextBtn = document.getElementById('glam-next');
   const actions = document.getElementById('glam-actions');
   const finishBtn = document.getElementById('glam-finish');
   const out = document.getElementById('glam-out');
@@ -389,21 +393,36 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   let budget = 0;
   let items = [];
   let selected = new Set();
-  let secsLeft = 60;
+  let secsLeft = 180;
   let timer = null;
   let startedAt = 0;
   let finished = false;
 
+  // pagination
+  const pageSize = 10;
+  let page = 0; // 0-based
+
+  const minPick = 12;
+
   function show(el){ el && el.classList.remove('hidden'); }
   function hide(el){ el && el.classList.add('hidden'); }
-  function updateHUD(){
-    const spend = Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0);
-    spendEl.textContent = 'Spend: ₹' + spend;
-    countEl.textContent = 'Selected: ' + selected.size + '/10';
+
+  function spendTotal(){
+    return Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0);
   }
+
+  function updateHUD(){
+    spendEl.textContent = 'Spend: ₹' + spendTotal();
+    countEl.textContent = 'Selected: ' + selected.size + '/' + minPick;
+    pageEl.textContent = 'Page: ' + (page + 1);
+  }
+
   function renderList(){
     listEl.innerHTML = '';
-    items.forEach((it, i) => {
+    const start = page * pageSize;
+    const end = Math.min(items.length, start + pageSize);
+    for (let i = start; i < end; i++) {
+      const it = items[i];
       const row = document.createElement('label');
       row.className = 'option';
       row.style.display = 'grid';
@@ -413,15 +432,16 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
 
       const cb = document.createElement('input');
       cb.type = 'checkbox';
+      cb.checked = selected.has(i);
       cb.onchange = () => {
         if (cb.checked) {
           selected.add(i);
         } else {
           selected.delete(i);
         }
-        // prevent going over budget: if exceed, undo
-        const spend = Array.from(selected).reduce((s,idx)=>s + Number(items[idx].price||0),0);
-        if (spend > budget) {
+        // prevent overspend
+        const total = spendTotal();
+        if (total > budget) {
           selected.delete(i);
           cb.checked = false;
         }
@@ -438,13 +458,21 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       row.appendChild(text);
       row.appendChild(price);
       listEl.appendChild(row);
-    });
+    }
+
+    // enable/disable pager buttons
+    prevBtn.disabled = page === 0;
+    nextBtn.disabled = (page + 1) * pageSize >= items.length;
+
+    updateHUD();
   }
+
   function tick(){
     secsLeft -= 1;
     if (secsLeft < 0) { finish(true); return; }
     timerEl.textContent = 'Time: ' + secsLeft + 's';
   }
+
   function finish(auto=false){
     if(finished) return; finished = true;
     clearInterval(timer);
@@ -470,17 +498,18 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
         json.summary || ''
       ].join('\n');
       out.textContent = details;
-      hide(actions);
+      hide(actions); hide(pager);
       listEl.querySelectorAll('input[type="checkbox"]').forEach(c=>c.disabled=true);
     }).catch(()=> out.textContent = 'Network error. Please try again.');
   }
 
+  // Start game
   startForm.addEventListener('submit', async (e)=>{
     e.preventDefault();
     out.textContent = 'Fetching your glam bucket...';
-    finished = false; selected.clear(); secsLeft = 60;
+    finished = false; selected.clear(); secsLeft = 180; page = 0;
     const gender = startForm.gender.value;
-    const budgetInr = Number(startForm.budget.value);
+    const budgetInr = Math.max(10000, Number(startForm.budget.value));
     try{
       const res = await fetch('/api/glam/start', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -490,19 +519,28 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
       token = json.token; budget = json.budgetInr; items = json.items || [];
       budgetEl.textContent = 'Budget: ₹' + budget;
-      show(hud); show(listEl); show(actions);
-      out.textContent = 'Pick at least 10 products within budget before the timer ends!';
-      renderList(); updateHUD();
+      show(hud); show(listEl); show(actions); show(pager);
+      out.textContent = `Pick at least ${minPick} products within budget before the timer ends!`;
       // start timer
       clearInterval(timer);
-      secsLeft = 60; timerEl.textContent = 'Time: ' + secsLeft + 's';
+      secsLeft = 180; timerEl.textContent = 'Time: ' + secsLeft + 's';
       startedAt = Date.now();
       timer = setInterval(tick, 1000);
+      renderList();
     }catch{
       out.textContent = 'Network error. Please try again.';
     }
   });
 
+  // Pager
+  prevBtn.addEventListener('click', ()=>{
+    if(page > 0){ page -= 1; renderList(); }
+  });
+  nextBtn.addEventListener('click', ()=>{
+    if((page + 1) * pageSize < items.length){ page += 1; renderList(); }
+  });
+
+  // Finish
   finishBtn.addEventListener('click', ()=>finish(false));
 })();
 
