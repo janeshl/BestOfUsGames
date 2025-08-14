@@ -54,56 +54,23 @@ Favorite place: ${favoritePlace}`,
 
   // Game 3: Guess the Character
   characterCandidates: (topic) => [
-    {
-      role: "system",
-      content:
-        "Return STRICT JSON {candidates: string[]} of 5 well-known people or fictional characters related to the topic. No other text.",
-    },
-    { role: "user", content: `Topic: ${topic}. JSON only.` },
+    { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known people or fictional characters related to the topic. No other text." },
+    { role: "user", content: `Topic: ${topic}. JSON only.` }
   ],
-
-  // Conversational (not restricted to yes/no), detects guesses, hint only in last round
-  characterTurn: ({ name, qa, round, roundsMax, text, isLastRound }) => [
-    {
-      role: "system",
-      content: `You are running a mystery character chat game. The secret answer is "${name}".
-
-GOAL
-- Have a natural, friendly conversation that helps the player deduce the character without revealing the name directly.
-
-RESPONSE STYLE
-- Be conversational and helpful (NOT restricted to yes/no). Use 1–2 concise sentences (≤ 40 words total).
-- Never state or spell the exact name/title directly; avoid explicit giveaways.
-- You may describe traits, era, domain, achievements, relationships, settings, or iconic clues (but progressively).
-- Ask brief follow-up questions when helpful to keep the dialogue flowing.
-
-GUESS DETECTION
-- Detect if the player is explicitly proposing a name or character (e.g., “Is it X?” or “I guess X”).
-- If they are guessing, set isGuess=true and guessedName to their guessed string (best effort).
-- Never reveal the real name unless the guess is correct (the server handles win/reveal logic).
-
-HINT POLICY
-- Provide exactly ONE helpful hint only if it's the last round (isLastRound=true), otherwise return hint="".
-- Hints should narrow the space but not reveal the exact name.
-
-OUTPUT
-Return STRICT JSON with keys:
-- answer: string (your conversational reply, ≤ 40 words)
+  characterTurn: ({name, qa, round, text}) => [
+    { role: "system", content: `You are running a 20-questions style game. The secret answer is "${name}".
+Respond to the user's message as a short yes/no style answer (<= 15 words), without revealing the name.
+Also determine if the user is explicitly making a guess of the character's name.
+Return strict JSON with keys:
+- answer: string
 - isGuess: boolean
 - guessedName: string
-- hint: string (MUST be empty unless it's the last round)`,
-    },
-    {
-      role: "user",
-      content: `Conversation so far:
-${qa || "(none)"}
-
-Round: ${round} of ${roundsMax}
-Is Last Round: ${isLastRound}
-
-Player message: ${text}`,
-    },
-  ],
+- hint: string (empty if no hint this turn)
+If current round is >= 4, include a helpful hint that makes the game easier but does not reveal the name.
+Do NOT include extra text.` },
+    { role: "user", content: `Previous Q&A:\n${qa}\nCurrent Round: ${round}\nUser message: ${text}` }
+  ]
+};
 
   // Game 4: Find the Healthy-Diet
   healthyQuestions: () => [
