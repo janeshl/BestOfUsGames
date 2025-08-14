@@ -71,7 +71,30 @@ Is Last Round: ${isLastRound}
 
 User message: ${text}`
     }
+  ],
+
+     healthyQuestions: () => [
+    { role: "system", content: "Create exactly 8 brief health and diet assessment questions. Cover: age range, sex, activity level, dietary pattern (veg/vegan/omnivore), allergies/intolerances, goals (lose/maintain/gain), typical schedule & meal frequency, cultural/cuisine preferences. Return STRICT JSON {questions: string[8]}. No extra text." },
+    { role: "user", content: "Return JSON only." }
+  ],
+
+  healthyPlan: ({questions, answers}) => [
+    { role: "system", content: `You are a careful nutrition assistant. Using the user's responses, create a practical, culturally-flexible, **food-based** diet plan.
+Safety rules: 
+- Do NOT give medical advice or diagnose; add a short non-medical disclaimer.
+- Avoid unsafe extremes; give ranges & substitutions for allergies/intolerances.
+- Focus on whole foods, hydration, and sustainable habits.
+
+Output format (plain text):
+1) Summary (2-3 bullets)
+2) Daily Targets (calorie range, protein/carb/fat ranges)
+3) Sample Day (Breakfast, Snack, Lunch, Snack, Dinner)
+4) 7-Day Rotation Ideas (bullet list by day with 1–2 meals each)
+5) Tips & Substitutions (bullets)
+6) Disclaimer (1 line)` },
+    { role: "user", content: `Questions:\n${questions.map((q,i)=>`Q${i+1}. ${q}`).join("\n")}\n\nAnswers:\n${answers.map((a,i)=>`A${i+1}. ${a}`).join("\n")}\n\nCreate the plan now.` }
   ]
+
 };
 
 /* ------------------------
@@ -223,6 +246,8 @@ app.post("/api/character/turn", async (req, res) => {
           answer: parsed.answer,
           hint: parsed.hint || ""   // client can display if provided (e.g., in last round)
         });
+
+         
       }
     }
 
@@ -256,6 +281,57 @@ app.post("/api/character/turn", async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+/* ========================
+   Game 4: Find the Healthy-Diet
+   - Fetch 8 questions
+   - Generate plan using all answers
+======================== */
+app.post("/api/healthy/start", async (_req, res) => {
+  try {
+    let questions = [
+      "What is your age range (e.g., 18–24, 25–34, 35–44, 45+)?",
+      "What is your Gender?",
+      "What is your typical activity level (sedentary, light, moderate, high)?",
+      "Do you follow a dietary pattern (veg/vegan/omnivore/other)?",
+      "Any allergies or intolerances (e.g., dairy, nuts, gluten)?",
+      "Your primary goal (lose/maintain/gain/energy/other)?",
+      "What’s your typical daily schedule & preferred meal frequency?",
+      "Any cuisine preferences or foods you enjoy/avoid?"
+    ];
+    try {
+      const raw = await chatCompletion(PROMPTS.healthyQuestions(), 0.4, 220);
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.questions) && parsed.questions.length === 8) {
+        questions = parsed.questions;
+      }
+    } catch {}
+    const token = "HD" + Math.random().toString(36).slice(2,10).toUpperCase();
+    sessions.set(token, { type: "healthy", questions, createdAt: Date.now() });
+    res.json({ ok: true, token, questions });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post("/api/healthy/plan", async (req, res) => {
+  try {
+    const { token, answers } = req.body ?? {};
+    const s = sessions.get(token);
+    if (!s || s.type !== "healthy") return res.status(400).json({ ok: false, error: "Session not found/expired." });
+    if (!Array.isArray(answers) || answers.length !== 8) {
+      return res.status(400).json({ ok: false, error: "Please provide all 8 answers." });
+    }
+    const messages = PROMPTS.healthyPlan({ questions: s.questions, answers });
+    const content = await chatCompletion(messages, 0.6, 1200);
+    // End the session once a plan is generated
+    sessions.delete(token);
+    res.json({ ok: true, plan: content });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 app.listen(PORT, () => console.log(`✅ http://localhost:${PORT}`));
