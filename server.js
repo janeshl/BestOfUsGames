@@ -35,44 +35,50 @@ const PROMPTS = {
     { role: "user", content: `Topic: ${topic}. Return JSON only.` }
   ],
 
-  characterCandidates: (topic) => [
-    { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known people or fictional characters related to the topic. No other text." },
-    { role: "user", content: `Topic: ${topic}. JSON only.` }
-  ],
+  // Updated: conversational (not limited to yes/no), detects guesses, last-round hint only
+characterTurn: ({name, qa, round, roundsMax, text, isLastRound}) => [
+  {
+    role: "system",
+    content:
+`You are running a mystery character chat game. The secret answer is "${name}".
 
-  // Updated: supports last-round-only hint and roundsMax
-  characterTurn: ({name, qa, round, roundsMax, text, isLastRound}) => [
-    {
-      role: "system",
-      content:
-`You run a 20-questions-style game. The secret answer is "${name}".
-Respond concisely with yes/no style answers (<= 15 words) without revealing the name.
-Detect if the user is explicitly guessing the character's name.
+GOAL
+- Have a natural, friendly conversation that helps the player deduce the character without revealing the name directly.
 
+RESPONSE STYLE
+- Be conversational and helpful (NOT restricted to yes/no). Use 1–2 concise sentences (≤ 40 words total).
+- Never state or spell the exact name/title directly; avoid explicit giveaways.
+- You may describe traits, era, domain, achievements, relationships, settings, or iconic clues (but progressively).
+- Ask brief follow-up questions when helpful to keep the dialogue flowing.
+
+GUESS DETECTION
+- Detect if the player is explicitly proposing a name or character (e.g., “Is it X?” or “I guess X”).
+- If they are guessing, set isGuess=true and guessedName to their guessed string (best effort).
+- Never reveal the real name unless the guess is correct (the server handles win/reveal logic).
+
+HINT POLICY
+- Provide exactly ONE helpful hint only if it's the last round (isLastRound=true), otherwise return hint="".
+- Hints should narrow the space but not reveal the exact name.
+
+OUTPUT
 Return STRICT JSON with keys:
-- answer: string
+- answer: string (your conversational reply, ≤ 40 words)
 - isGuess: boolean
 - guessedName: string
-- hint: string (MUST be empty unless it's the last round)
-
-Rules about hints:
-- Provide exactly ONE helpful hint only if it's the last round.
-- The hint must make the game easier but MUST NOT reveal or directly name the character.
-- If it's not the last round, hint must be "" (empty string).`
-    },
-    {
-      role: "user",
-      content:
-`Previous Q&A:
+- hint: string (MUST be empty unless it's the last round)`
+  },
+  {
+    role: "user",
+    content:
+`Conversation so far:
 ${qa || "(none)"}
 
-Current Round: ${round} of ${roundsMax}
+Round: ${round} of ${roundsMax}
 Is Last Round: ${isLastRound}
 
-User message: ${text}`
-    }
-  ],
-
+Player message: ${text}`
+  }
+],
      healthyQuestions: () => [
     { role: "system", content: "Create exactly 8 brief health and diet assessment questions. Cover: age range, sex, activity level, dietary pattern (veg/vegan/omnivore), allergies/intolerances, goals (lose/maintain/gain), typical schedule & meal frequency, cultural/cuisine preferences. Return STRICT JSON {questions: string[8]}. No extra text." },
     { role: "user", content: "Return JSON only." }
