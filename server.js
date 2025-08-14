@@ -49,7 +49,7 @@ app.post("/api/predict-future", async (req, res) => {
   try {
     const { name, birthMonth, favoritePlace } = req.body ?? {};
     const messages = [
-      { role: "system", content: "You are a funny fortune teller. Create funny, technology related positive predictions in 2-3 sentences. Use the inputs naturally. Keep it light; no health, death, or lottery claims." },
+      { role: "system", content: "You are a funny fortune teller. Create playful, positive predictions in 2-3 sentences. Use the inputs naturally. Keep it light; no health, death, or lottery claims." },
       { role: "user", content: `Make a humorous future prediction for:\nName: ${name}\nBirth month: ${birthMonth}\nFavorite place: ${favoritePlace}` }
     ];
     const content = await chatCompletion(messages, 0.9, 180);
