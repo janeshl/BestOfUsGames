@@ -165,7 +165,7 @@ Answers (Y/N):
 ${qa.map((a, i) => `Q${i + 1}: ${a.q}\nA${i + 1}: ${a.a ? "Yes" : "No"}`).join("\n")}
 JSON only.`,
     },
-  ]
+  ],
      glamSuggest: ({ gender, budgetInr }) => [
     {
       role: "system",
