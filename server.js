@@ -166,7 +166,8 @@ ${qa.map((a, i) => `Q${i + 1}: ${a.q}\nA${i + 1}: ${a.a ? "Yes" : "No"}`).join("
 JSON only.`,
     },
   ],
-       glamSuggest: ({ gender, budgetInr }) => [
+       // Game 6: Budget Glam Builder (30 items)
+  glamSuggest: ({ gender, budgetInr }) => [
     {
       role: "system",
       content: `Suggest 30 skincare/beauty products appropriate for the specified gender (or unisex).
@@ -184,14 +185,14 @@ Return STRICT JSON:
     { "name": string, "price": number, "description": string, "category": string, "ecoFriendly": boolean }
     x30
   ]
-}`
+}`,
     },
     {
       role: "user",
       content: `Gender: ${gender || "Unisex"}
 BudgetINR: ${budgetInr}
-JSON only.`
-    }
+JSON only.`,
+    },
   ],
 
   glamScore: ({ budgetInr, selected, timeTaken }) => [
@@ -210,7 +211,7 @@ Output STRICT JSON:
   "positives": string[],
   "negatives": string[],
   "summary": string
-}`
+}`,
     },
     {
       role: "user",
@@ -218,12 +219,17 @@ Output STRICT JSON:
 TimeTakenSeconds: ${timeTaken}
 
 Selected Items (${selected.length}):
-${selected.map((it,i)=>`#${i+1} ${it.name} — ₹${it.price} — ${it.category} — eco:${it.ecoFriendly}`).join("\n")}
+${selected
+  .map(
+    (it, i) =>
+      `#${i + 1} ${it.name} — ₹${it.price} — ${it.category} — eco:${it.ecoFriendly}`
+  )
+  .join("\n")}
 
-TotalSpend: ₹${selected.reduce((s,x)=>s+Number(x.price||0),0)}
-JSON only.`
-    }
-  ]
+TotalSpend: ₹${selected.reduce((s, x) => s + Number(x.price || 0), 0)}
+JSON only.`,
+    },
+  ],
 };
 
 /* ------------------------
@@ -595,58 +601,75 @@ app.post("/api/fpp/answers", async (req, res) => {
   }
 });
 
-/* ========================
+/* =================================
    Game 6: Budget Glam Builder
    - Start: min budget ₹10,000, 30 items
-   - Score: min selection 12, timer 180s
-======================== */
+   - Score: min selection 12, timer measured client-side
+================================= */
 app.post("/api/glam/start", async (req, res) => {
   try {
     const { gender = "Unisex", budgetInr } = req.body ?? {};
-    const budget = Math.max(10000, Number(budgetInr) || 15000); // new minimum ₹10,000
+    const budget = Math.max(10000, Number(budgetInr) || 15000); // enforce min ₹10k
 
-    // Fallback list if model JSON fails (30 items)
+    // Fallback list (30 items) if LLM JSON fails
     let items = Array.from({ length: 30 }).map((_, i) => ({
       name: `Starter Item ${i + 1}`,
       price: Math.floor(250 + Math.random() * 1500),
       description: "A practical everyday pick.",
-      category: ["Cleanser","Moisturizer","Sunscreen","Serum","Lip Care","Body","Hair","Mask","Toner","Eye Cream","Primer","Exfoliant"][i % 12],
-      ecoFriendly: i % 3 === 0
+      category: [
+        "Cleanser",
+        "Moisturizer",
+        "Sunscreen",
+        "Serum",
+        "Lip Care",
+        "Body",
+        "Hair",
+        "Mask",
+        "Toner",
+        "Eye Cream",
+        "Primer",
+        "Exfoliant",
+      ][i % 12],
+      ecoFriendly: i % 3 === 0,
     }));
 
     try {
-      const raw = await chatCompletion(PROMPTS.glamSuggest({ gender, budgetInr: budget }), 0.5, 1600);
+      const raw = await chatCompletion(
+        PROMPTS.glamSuggest({ gender, budgetInr: budget }),
+        0.5,
+        1600
+      );
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.items) && parsed.items.length >= 20) {
         items = parsed.items
           .slice(0, 30)
-          .map(it => ({
+          .map((it) => ({
             name: String(it.name || "").slice(0, 80),
             price: Math.max(50, Number(it.price) || 0),
             description: String(it.description || "").slice(0, 120),
             category: String(it.category || "Other").slice(0, 40),
-            ecoFriendly: !!it.ecoFriendly
+            ecoFriendly: !!it.ecoFriendly,
           }));
-        // Pad to exactly 30 if LLM returned < 30
         while (items.length < 30) {
           items.push({
             name: `Extra Item ${items.length + 1}`,
             price: Math.floor(300 + Math.random() * 1200),
             description: "Useful addition.",
             category: "Other",
-            ecoFriendly: Math.random() < 0.3
+            ecoFriendly: Math.random() < 0.3,
           });
         }
       }
     } catch {}
 
-    const token = "GB" + Math.random().toString(36).slice(2, 10).toUpperCase();
+    const token =
+      "GB" + Math.random().toString(36).slice(2, 10).toUpperCase();
     sessions.set(token, {
       type: "glam",
       gender,
       budgetInr: budget,
       items,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     });
 
     res.json({ ok: true, token, gender, budgetInr: budget, items });
@@ -660,16 +683,20 @@ app.post("/api/glam/score", async (req, res) => {
     const { token, selectedIndices, timeTaken } = req.body ?? {};
     const s = sessions.get(token);
     if (!s || s.type !== "glam")
-      return res.status(400).json({ ok: false, error: "Session not found/expired." });
+      return res
+        .status(400)
+        .json({ ok: false, error: "Session not found/expired." });
 
     const idxs = Array.isArray(selectedIndices) ? selectedIndices : [];
-    const uniqueIdxs = [...new Set(idxs)].filter(i => Number.isInteger(i) && i >= 0 && i < s.items.length);
+    const uniqueIdxs = [...new Set(idxs)].filter(
+      (i) => Number.isInteger(i) && i >= 0 && i < s.items.length
+    );
 
-    const selected = uniqueIdxs.map(i => s.items[i]);
+    const selected = uniqueIdxs.map((i) => s.items[i]);
     const total = selected.reduce((sum, it) => sum + Number(it.price || 0), 0);
     const secs = Math.max(0, Number(timeTaken) || 0);
 
-    // New minimum picks: 12
+    // Require at least 12 picks
     if (selected.length < 12) {
       sessions.delete(token);
       return res.json({
@@ -683,22 +710,34 @@ app.post("/api/glam/score", async (req, res) => {
         totalSpend: total,
         timeTaken: secs,
         positives: [],
-        negatives: ["Picked fewer than 12 products"]
+        negatives: ["Picked fewer than 12 products"],
       });
     }
 
-    // Score with AI
-    let scored = { score: 0, positives: [], negatives: [], summary: "No summary." };
+    // Ask AI to score
+    let scored = {
+      score: 0,
+      positives: [],
+      negatives: [],
+      summary: "No summary.",
+    };
     try {
-      const raw = await chatCompletion(PROMPTS.glamScore({
-        budgetInr: s.budgetInr,
-        selected,
-        timeTaken: secs
-      }), 0.4, 1200);
+      const raw = await chatCompletion(
+        PROMPTS.glamScore({
+          budgetInr: s.budgetInr,
+          selected,
+          timeTaken: secs,
+        }),
+        0.4,
+        1200
+      );
       const parsed = JSON.parse(raw);
-      if (typeof parsed.score === "number") scored.score = Math.max(0, Math.min(100, parsed.score));
-      if (Array.isArray(parsed.positives)) scored.positives = parsed.positives.slice(0, 6);
-      if (Array.isArray(parsed.negatives)) scored.negatives = parsed.negatives.slice(0, 6);
+      if (typeof parsed.score === "number")
+        scored.score = Math.max(0, Math.min(100, parsed.score));
+      if (Array.isArray(parsed.positives))
+        scored.positives = parsed.positives.slice(0, 6);
+      if (Array.isArray(parsed.negatives))
+        scored.negatives = parsed.negatives.slice(0, 6);
       if (typeof parsed.summary === "string") scored.summary = parsed.summary;
     } catch {}
 
@@ -718,7 +757,7 @@ app.post("/api/glam/score", async (req, res) => {
       timeTaken: secs,
       message: win
         ? `🎉 Great build! Score ${scored.score}/100`
-        : `❌ Try again. Score ${scored.score}/100`
+        : `❌ Try again. Score ${scored.score}/100`,
     });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
