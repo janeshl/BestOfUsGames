@@ -8,29 +8,23 @@
 </head>
 <body class="container">
   <h2 class="section-title">Find the Character</h2>
-
   <article class="card">
-  <form id="start-form" class="game-form">
-    <input name="topic" placeholder="Enter a topic (e.g., Marvel, Indian Cricket, Mythology)" required />
-    <button class="btn" type="submit"><span>Start Game</span><span class="btn-icon">▶</span></button>
-  </form>
-
-  <div id="game" style="display:none">
-    <div class="badge" id="rounds">Rounds left: 10</div>
-    <div class="chat" id="chat"></div>
-    <form id="turn-form" class="game-form" style="margin-top:10px">
-      <input id="question" placeholder="Ask a yes/no question about the character..." required />
-      <input id="guess" placeholder="Your guess (optional, e.g., 'Iron Man')" />
-      <button class="btn" type="submit"><span>Ask</span><span class="btn-icon">➤</span></button>
+    <form id="start-form" class="game-form">
+      <input name="topic" placeholder="Enter a topic (e.g., Marvel, Indian Cricket, Mythology)" required />
+      <button class="btn" type="submit"><span>Start Game</span><span class="btn-icon">▶</span></button>
     </form>
-    <div id="result"></div>
-  </div>
-</article>
-
-  <div style="margin-top:24px; display:flex; justify-content:flex-start;">
-    <a href="./games.html" class="back"><span class="btn-icon">←</span> Back</a>
-  </div>
-
+    <div id="game" style="display:none">
+      <div class="badge" id="rounds">Rounds left: 10</div>
+      <div class="chat" id="chat"></div>
+      <form id="turn-form" class="game-form" style="margin-top:10px">
+        <input id="userline" placeholder="Chat normally: ask questions, or say your guess naturally" required />
+        <button class="btn" type="submit"><span>Send</span><span class="btn-icon">➤</span></button>
+      </form>
+      <pre id="answer-box" class="result" aria-live="polite"></pre>
+      <div id="result"></div>
+    </div>
+  </article>
+  <div style="margin-top:24px;display:flex;justify-content:flex-start;"><a href="./games.html" class="back"><span class="btn-icon">←</span> Back</a></div>
 <script src="script.js"></script>
 </body>
 </html>
