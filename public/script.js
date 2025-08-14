@@ -368,3 +368,141 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
     }
   });
 })();
+
+// Budget Glam Builder
+(function(){
+  const card = document.getElementById('glam-card');
+  if(!card) return;
+
+  const startForm = document.getElementById('glam-start');
+  const hud = document.getElementById('glam-hud');
+  const timerEl = document.getElementById('glam-timer');
+  const budgetEl = document.getElementById('glam-budget');
+  const spendEl = document.getElementById('glam-spend');
+  const countEl = document.getElementById('glam-count');
+  const listEl = document.getElementById('glam-list');
+  const actions = document.getElementById('glam-actions');
+  const finishBtn = document.getElementById('glam-finish');
+  const out = document.getElementById('glam-out');
+
+  let token = null;
+  let budget = 0;
+  let items = [];
+  let selected = new Set();
+  let secsLeft = 60;
+  let timer = null;
+  let startedAt = 0;
+  let finished = false;
+
+  function show(el){ el && el.classList.remove('hidden'); }
+  function hide(el){ el && el.classList.add('hidden'); }
+  function updateHUD(){
+    const spend = Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0);
+    spendEl.textContent = 'Spend: ₹' + spend;
+    countEl.textContent = 'Selected: ' + selected.size + '/10';
+  }
+  function renderList(){
+    listEl.innerHTML = '';
+    items.forEach((it, i) => {
+      const row = document.createElement('label');
+      row.className = 'option';
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '24px 1fr auto';
+      row.style.alignItems = 'center';
+      row.style.gap = '10px';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.onchange = () => {
+        if (cb.checked) {
+          selected.add(i);
+        } else {
+          selected.delete(i);
+        }
+        // prevent going over budget: if exceed, undo
+        const spend = Array.from(selected).reduce((s,idx)=>s + Number(items[idx].price||0),0);
+        if (spend > budget) {
+          selected.delete(i);
+          cb.checked = false;
+        }
+        updateHUD();
+      };
+
+      const text = document.createElement('div');
+      text.innerHTML = `<b>${it.name}</b><br><small>${it.category} • ${it.ecoFriendly ? '🌱 Eco' : '—'}</small><br>${it.description}`;
+
+      const price = document.createElement('div');
+      price.textContent = '₹' + it.price;
+
+      row.appendChild(cb);
+      row.appendChild(text);
+      row.appendChild(price);
+      listEl.appendChild(row);
+    });
+  }
+  function tick(){
+    secsLeft -= 1;
+    if (secsLeft < 0) { finish(true); return; }
+    timerEl.textContent = 'Time: ' + secsLeft + 's';
+  }
+  function finish(auto=false){
+    if(finished) return; finished = true;
+    clearInterval(timer);
+    const timeTaken = Math.min(999, Math.round((Date.now() - startedAt)/1000));
+    const selectedIndices = Array.from(selected);
+    out.textContent = 'Scoring your kit...';
+    fetch('/api/glam/score', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ token, selectedIndices, timeTaken })
+    }).then(r=>r.json()).then(json=>{
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      const head = json.win ? '🎉 You win!' : '❌ Not this time';
+      const details = [
+        `${head}  Score: ${json.score}/100`,
+        `Budget: ₹${json.budgetInr} • Spend: ₹${json.totalSpend} • Time: ${json.timeTaken}s`,
+        '',
+        '✅ Positives:',
+        ...(json.positives || []).map(p => '• ' + p),
+        '',
+        '⚠️ Areas to improve:',
+        ...(json.negatives || []).map(n => '• ' + n),
+        '',
+        json.summary || ''
+      ].join('\n');
+      out.textContent = details;
+      hide(actions);
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(c=>c.disabled=true);
+    }).catch(()=> out.textContent = 'Network error. Please try again.');
+  }
+
+  startForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    out.textContent = 'Fetching your glam bucket...';
+    finished = false; selected.clear(); secsLeft = 60;
+    const gender = startForm.gender.value;
+    const budgetInr = Number(startForm.budget.value);
+    try{
+      const res = await fetch('/api/glam/start', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ gender, budgetInr })
+      });
+      const json = await res.json();
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      token = json.token; budget = json.budgetInr; items = json.items || [];
+      budgetEl.textContent = 'Budget: ₹' + budget;
+      show(hud); show(listEl); show(actions);
+      out.textContent = 'Pick at least 10 products within budget before the timer ends!';
+      renderList(); updateHUD();
+      // start timer
+      clearInterval(timer);
+      secsLeft = 60; timerEl.textContent = 'Time: ' + secsLeft + 's';
+      startedAt = Date.now();
+      timer = setInterval(tick, 1000);
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+
+  finishBtn.addEventListener('click', ()=>finish(false));
+})();
+
