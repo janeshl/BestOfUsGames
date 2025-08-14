@@ -128,9 +128,10 @@ app.post("/api/character/turn", async (req, res) => {
     }
 
     // Build an answer to the player's question WITHOUT revealing the character
-    const qaContext = s.history.map((h, i) => `Q${i+1}: ${h.q}
-A${i+1}: ${h.a}`).join("
-");
+    const qaContext = s.history
+      .map((h, i) => `Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`)
+      .join("\n");
+
     const answerMessages = [
       { role: "system", content:
         `You are answering yes/no questions about a secret character: "${s.name}".
