@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spot the Lie</title>
+  <link rel="stylesheet" href="styling.css" />
+</head>
+<body class="container">
+  <a href="./index.html" class="back"><span class="btn-icon">←</span> Back</a>
+  <h2 class="section-title">Spot the Lie</h2>
+
+  <article class="card">
+    <form id="gen-form" class="game-form">
+      <input name="topic" placeholder="Enter a topic (e.g., SpaceX, Cricket, Sherlock Holmes)" required />
+      <button class="btn" type="submit"><span>Generate</span><span class="btn-icon">⚡</span></button>
+    </form>
+    <div id="options" class="list"></div>
+    <div id="hint" class="badge" style="display:none"></div>
+    <div id="verify" style="margin-top:10px"></div>
+  </article>
+
+<script>
+let token = null;
+let chosen = null;
+
+document.getElementById('gen-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const topic = e.target.topic.value;
+  document.getElementById('options').innerHTML = '<div class="pill">Generating statements...</div>';
+  const res = await fetch('/api/lie/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ topic }) });
+  const json = await res.json();
+  if(!json.ok){ document.getElementById('options').innerHTML = 'Error: ' + json.error; return; }
+  token = json.token;
+  const list = json.statements;
+  const box = document.getElementById('options');
+  box.innerHTML='';
+  list.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'option';
+    d.textContent = (i+1) + '. ' + s;
+    d.onclick = () => select(i+1, d);
+    box.appendChild(d);
+  });
+  const hintEl = document.getElementById('hint');
+  hintEl.textContent = 'Hint: ' + json.hint;
+  hintEl.style.display = 'inline-flex';
+  document.getElementById('verify').innerHTML = '';
+});
+
+function select(index, el){
+  chosen = index;
+  document.querySelectorAll('.option').forEach(n => n.style.borderColor='var(--border)');
+  el.style.borderColor = 'rgba(138,92,246,.6)';
+  document.getElementById('verify').innerHTML = '<button class="btn" onclick="check()">Verify</button>';
+}
+
+async function check(){
+  if(!token || !chosen){ return; }
+  const res = await fetch('/api/lie/verify', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, guessIndex: chosen }) });
+  const json = await res.json();
+  if(!json.ok){ document.getElementById('verify').textContent = 'Error: ' + json.error; return; }
+  const correct = json.correct;
+  document.getElementById('verify').innerHTML = correct ? '<div class="pill">🎉 Correct! You found the lie.</div>' :
+    '<div class="pill">❌ Not quite. The lie was option ' + json.answer + '.</div>';
+}
+</script>
+</body>
+</html>
