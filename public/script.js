@@ -256,7 +256,7 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   start();
 })();
 
-// Future Price Prediction (10 yes/no -> AI price -> player's guess)
+// Future Price Prediction (10 yes/no -> AI price -> player's guess; hide AI price until after guess)
 (function(){
   const card = document.getElementById('fpp-card');
   if(!card) return;
@@ -337,9 +337,10 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   yesBtn?.addEventListener('click', ()=>answer(true));
   noBtn?.addEventListener('click',  ()=>answer(false));
 
+  // After generating the AI price, DO NOT show it yet — prompt for guess
   genBtn?.addEventListener('click', async ()=>{
     if(!token) return;
-    out.textContent = '💹 Calculating AI 5-year price...';
+    out.textContent = '💹 Preparing the 5-year scenario...';
     try{
       const res = await fetch('/api/fpp/answers', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -347,13 +348,16 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       });
       const json = await res.json();
       if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      out.textContent = `AI says: ${json.currency} ${json.predicted}\n\nReasoning: ${json.explanation}`;
+
+      // Hide AI price & reasoning here — just prompt for guess now
+      out.textContent = `All set. Now enter your 5-year price guess for ${product}.`;
       show(guessWrap);
     }catch{
       out.textContent = 'Network error. Please try again.';
     }
   });
 
+  // Reveal AI price ONLY after the player's guess, alongside result
   submitGuess?.addEventListener('click', async ()=>{
     if(!token) return;
     const g = Number(guessInput.value);
@@ -366,10 +370,14 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       });
       const json = await res.json();
       if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      out.textContent = (json.win
-        ? `${json.message}\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
-        : `${json.message}\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
-      );
+
+      // Now show both values & result
+      out.textContent =
+        (json.win
+          ? `🎉 Great guess! You matched within 60%.\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+          : `❌ Not quite. Better luck next time!\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+        );
+
       guessInput.value = '';
     }catch{
       out.textContent = 'Network error. Please try again.';
