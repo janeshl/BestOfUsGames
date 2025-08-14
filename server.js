@@ -54,36 +54,23 @@ Favorite place: ${favoritePlace}`,
 
   // Game 3: Guess the Character
   characterCandidates: (topic) => [
-    { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known people or fictional characters related to the topic. No other text." },
+    { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known medium level difficulty to find out people or fictional characters related to the topic. No other text." },
     { role: "user", content: `Topic: ${topic}. JSON only.` }
   ],
-  characterTurn: ({ name, qa, round, text }) => [
-    {
-      role: "system",
-      content: `You are running a 20-questions style game. The secret answer is "${name}".
+  characterTurn: ({name, qa, round, text}) => [
+    { role: "system", content: `You are running a 20-questions style game. The secret answer is "${name}".
 Respond to the user's message as a short yes/no style answer (<= 15 words), without revealing the name.
 Also determine if the user is explicitly making a guess of the character's name.
-
 Return strict JSON with keys:
 - answer: string
 - isGuess: boolean
 - guessedName: string
-- hint: string (MUST be empty unless the current round is exactly 4)
-
-Hint rule:
-- If and only if the current round is 4, include ONE helpful hint that narrows the search but does NOT reveal or spell the name.
-- Otherwise, return hint as an empty string "".
-Do NOT include extra text.`
-    },
-    {
-      role: "user",
-      content: `Previous Q&A:
-${qa}
-
-Current Round: ${round}
-User message: ${text}`
-    }
-  ],
+- hint: string (empty if no hint this turn)
+If current round is >= 8, include a helpful different hints that makes the game easier but does not reveal the name.
+Do NOT include extra text.` },
+    { role: "user", content: `Previous Q&A:\n${qa}\nCurrent Round: ${round}\nUser message: ${text}` }
+  ]
+};
 
   healthyPlan: ({ questions, answers }) => [
     {
@@ -285,8 +272,7 @@ app.post("/api/quiz/answer", (req, res) => {
   }
 });
 
-const ROUNDS_MAX = 5;
-
+/* Game 3: Conversational Character */
 app.post("/api/character/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
@@ -302,14 +288,8 @@ app.post("/api/character/start", async (req, res) => {
     recentByTopic.set(topic, [name, ...rec].slice(0,5));
     const id = makeId();
     sessions.set(id, { type: "character", topic, name, rounds: 0, history: [], createdAt: Date.now() });
-    res.json({
-      ok: true,
-      sessionId: id,
-      message: `Ask yes/no questions about the secret character. You have ${ROUNDS_MAX} rounds. Natural guesses are accepted.`
-    });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+    res.json({ ok: true, sessionId: id, message: "Ask yes/no questions about the secret character. You have 10 rounds. Natural guesses are accepted." });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 app.post("/api/character/turn", async (req, res) => {
@@ -319,57 +299,31 @@ app.post("/api/character/turn", async (req, res) => {
     if (!s) return res.status(400).json({ ok: false, error: "Session not found." });
 
     const qa = s.history.map((h,i)=>`Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join("\n");
-    const currentRound = s.rounds + 1;              // 1..5
-    const messages = PROMPTS.characterTurn({ name: s.name, qa, round: currentRound, text });
+    const messages = PROMPTS.characterTurn({ name: s.name, qa, round: s.rounds+1, text });
 
     let parsed = { answer: "Okay.", isGuess: false, guessedName: "", hint: "" };
-    try {
-      const raw = await chatCompletion(messages, 0.4, 180);
-      parsed = JSON.parse(raw);
-    } catch {}
+    try { const raw = await chatCompletion(messages, 0.4, 160); parsed = JSON.parse(raw); } catch {}
 
-    // record
     s.rounds += 1;
     s.history.push({ q: text || "", a: parsed.answer || "" });
 
-    // check guess
     if (parsed.isGuess && parsed.guessedName) {
       const correct = parsed.guessedName.trim().toLowerCase() === s.name.trim().toLowerCase();
       if (correct) {
         sessions.delete(sessionId);
-        return res.json({
-          ok: true, done: true, win: true, name: s.name,
-          answer: parsed.answer,
-          hint: currentRound === 4 ? (parsed.hint || "") : "" // just in case
-        });
+        return res.json({ ok: true, done: true, win: true, name: s.name, answer: parsed.answer, hint: parsed.hint || "" });
       }
     }
 
-    // out of rounds?
-    if (s.rounds >= ROUNDS_MAX) {
+    if (s.rounds >= 10) {
       const reveal = `Out of rounds! The character was: ${s.name}.`;
       sessions.delete(sessionId);
-      return res.json({
-        ok: true, done: true, win: false, name: s.name,
-        answer: parsed.answer,
-        hint: currentRound === 4 ? (parsed.hint || "") : "",
-        message: reveal
-      });
+      return res.json({ ok: true, done: true, win: false, name: s.name, answer: parsed.answer, hint: parsed.hint || "", message: reveal });
     }
 
-    // continue
-    const roundsLeft = ROUNDS_MAX - s.rounds;
-    const showHint = (currentRound === 4) && (parsed.hint || "").trim().length;
-    res.json({
-      ok: true,
-      done: false,
-      answer: parsed.answer,
-      hint: showHint ? parsed.hint : "",
-      roundsLeft
-    });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
+    const showHint = (s.rounds >= 8) && (parsed.hint || "").trim().length;
+    res.json({ ok: true, done: false, answer: parsed.answer, hint: showHint ? parsed.hint : "", roundsLeft: 10 - s.rounds });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 /* ========================
