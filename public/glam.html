@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Glam Builder</title>
+  <link rel="stylesheet" href="styling.css" />
+</head>
+<body class="container">
+  <h2 class="section-title">Budget Glam Builder</h2>
+
+  <article class="card" id="glam-card">
+    <form id="glam-start" class="game-form" autocomplete="off">
+      <div class="row">
+        <select name="gender" required>
+          <option value="Unisex" selected>Unisex</option>
+          <option>Female</option>
+          <option>Male</option>
+        </select>
+        <input name="budget" placeholder="Budget in INR (e.g., 3500)" required inputmode="numeric" />
+      </div>
+      <button class="btn" type="submit"><span>Start</span></button>
+    </form>
+
+    <div id="glam-hud" class="hidden" style="margin-top:10px">
+      <div class="badge" id="glam-timer">Time: 60s</div>
+      <div class="badge" id="glam-budget">Budget: ₹0</div>
+      <div class="badge" id="glam-spend">Spend: ₹0</div>
+      <div class="badge" id="glam-count">Selected: 0/10</div>
+    </div>
+
+    <div id="glam-list" class="list hidden" style="margin-top:10px"></div>
+
+    <div id="glam-actions" class="hidden" style="margin-top:12px">
+      <button id="glam-finish" class="btn" type="button"><span>Finish Now</span></button>
+    </div>
+
+    <pre id="glam-out" class="result" style="margin-top:12px"></pre>
+  </article>
+
+  <div style="margin-top:24px;display:flex;justify-content:flex-start;">
+    <a href="./games.html" class="back">← Back</a>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
