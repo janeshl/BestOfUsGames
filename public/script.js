@@ -19,17 +19,95 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
 })();
 
 // 5-Round Quiz
+// 5-Round Quiz with 20s per-question timer (auto-mark wrong on timeout)
 (function(){
   const startForm = document.querySelector('#quiz-start');
   if(!startForm) return;
-  const area = document.querySelector('#quiz-area');
+
+  const area   = document.querySelector('#quiz-area');
   const status = document.querySelector('#quiz-status');
-  const qEl = document.querySelector('#quiz-question');
+  const timerEl= document.querySelector('#quiz-timer');
+  const qEl    = document.querySelector('#quiz-question');
   const optsEl = document.querySelector('#quiz-options');
   const explEl = document.querySelector('#quiz-expl');
   const nextEl = document.querySelector('#quiz-next');
 
   let token = null;
+  let lock = false;           // prevents double answers
+  let tHandle = null;         // interval handle
+  let timeLeft = 20;          // seconds per question
+
+  function clearTimer(){
+    if(tHandle){ clearInterval(tHandle); tHandle = null; }
+  }
+  function startTimer(onExpire){
+    clearTimer();
+    timeLeft = 20;
+    timerEl.textContent = `⏱ ${timeLeft}s`;
+    tHandle = setInterval(()=>{
+      timeLeft -= 1;
+      timerEl.textContent = `⏱ ${timeLeft}s`;
+      if(timeLeft <= 0){
+        clearTimer();
+        if(!lock) onExpire(); // auto-mark wrong
+      }
+    }, 1000);
+  }
+
+  async function submitAnswer(choiceIndex, clickedEl){
+    if(lock) return; lock = true;
+    // stop inputs
+    Array.from(optsEl.children).forEach(n => n.style.pointerEvents='none');
+    clearTimer();
+
+    try{
+      const res  = await fetch('/api/quiz/answer', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ token, choice: choiceIndex })
+      });
+      const json = await res.json();
+      if(!json.ok){
+        nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>';
+        lock = false; return;
+      }
+
+      // show correctness styling if we had a clicked option
+      if(clickedEl){
+        clickedEl.style.borderColor = json.correct ? 'rgba(51,200,120,.8)' : 'rgba(255,80,80,.8)';
+      } else {
+        // timeout path: lightly indicate timeout
+        nextEl.innerHTML = '<div class="pill">⏳ Time up — counted as wrong.</div>';
+      }
+
+      if(json.explanation){
+        explEl.textContent = json.explanation;
+        explEl.style.display = 'block';
+      } else {
+        explEl.style.display = 'none';
+      }
+
+      if(json.done){
+        nextEl.innerHTML = '<div class="pill">🏁 Finished! Score: '+json.score+' / '+json.total+'</div>';
+        return; // end
+      }
+
+      // prepare Next button (immediate move or click-to-advance)
+      nextEl.innerHTML = '';
+      const b = document.createElement('button');
+      b.className = 'btn'; b.textContent = 'Next';
+      b.onclick = (e) => {
+        e.preventDefault();
+        renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options);
+      };
+      nextEl.appendChild(b);
+
+      lock = false;
+    }catch{
+      nextEl.innerHTML = '<div class="pill">Network error. Please try again.</div>';
+      lock = false;
+    }
+  }
 
   function renderQuestion(idx, total, question, options){
     area.style.display = 'block';
@@ -39,53 +117,31 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
     explEl.style.display = 'none';
     explEl.textContent = '';
     nextEl.innerHTML = '';
+    lock = false;
 
+    // Build options
     (options || []).forEach((opt, i) => {
       const d = document.createElement('div');
       d.className = 'option';
       d.textContent = (i+1) + '. ' + opt;
-      d.onclick = async () => {
-        Array.from(optsEl.children).forEach(n => n.style.pointerEvents='none');
-        try{
-          const res = await fetch('/api/quiz/answer', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ token, choice: i+1 })
-          });
-          const json = await res.json();
-          if(!json.ok){ nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>'; return; }
-          d.style.borderColor = json.correct ? 'rgba(51,200,120,.8)' : 'rgba(255,80,80,.8)';
-          if(json.explanation){
-            explEl.textContent = json.explanation;
-            explEl.style.display = 'block';
-          }
-          if(json.done){
-            nextEl.innerHTML = '<div class="pill">🏁 Finished! Score: '+json.score+' / '+json.total+'</div>';
-          } else if(json.next){
-            const b = document.createElement('button');
-            b.className = 'btn'; b.textContent = 'Next';
-            b.onclick = (e) => {
-              e.preventDefault();
-              renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options);
-            };
-            nextEl.appendChild(b);
-          }
-        }catch{
-          nextEl.innerHTML = '<div class="pill">Network error. Please try again.</div>';
-        }
-      };
+      d.onclick = () => submitAnswer(i+1, d);  // user click path
       optsEl.appendChild(d);
     });
+
+    // Start the 20s timer; on expire, submit choice 0 (always wrong)
+    startTimer(() => submitAnswer(0, null));
   }
 
+  // Start quiz
   startForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const topic = e.target.topic.value;
     e.target.topic.value = '';
     optsEl.innerHTML = '<div class="pill">Preparing quiz...</div>';
     try{
-      const res = await fetch('/api/quiz/start', {
-        method:'POST', headers:{'Content-Type':'application/json'},
+      const res  = await fetch('/api/quiz/start', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ topic })
       });
       const json = await res.json();
