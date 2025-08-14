@@ -256,3 +256,123 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   start();
 })();
 
+// Future Price Prediction (10 yes/no -> AI price -> player's guess)
+(function(){
+  const card = document.getElementById('fpp-card');
+  if(!card) return;
+
+  const startForm = document.getElementById('fpp-start');
+  const intro = document.getElementById('fpp-intro');
+  const qaWrap = document.getElementById('fpp-qa');
+  const status = document.getElementById('fpp-status');
+  const qEl = document.getElementById('fpp-question');
+  const yesBtn = document.getElementById('fpp-yes');
+  const noBtn = document.getElementById('fpp-no');
+  const actions = document.getElementById('fpp-actions');
+  const genBtn = document.getElementById('fpp-generate');
+  const guessWrap = document.getElementById('fpp-guess-wrap');
+  const guessInput = document.getElementById('fpp-guess');
+  const submitGuess = document.getElementById('fpp-submit-guess');
+  const out = document.getElementById('fpp-out');
+
+  let token = null;
+  let product = null;
+  let currency = null;
+  let currentPrice = null;
+  let questions = [];
+  let ix = 0;
+  const answers = new Array(10).fill(false);
+
+  function show(el){ if(el) el.classList.remove('hidden'); }
+  function hide(el){ if(el) el.classList.add('hidden'); }
+
+  function renderQuestion(){
+    status.textContent = `Question ${ix+1} of 10`;
+    qEl.textContent = questions[ix] || '';
+  }
+
+  startForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    out.textContent = '';
+    const category = startForm.category.value.trim();
+    try{
+      const res = await fetch('/api/fpp/start', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ category: category || undefined })
+      });
+      const json = await res.json();
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      token = json.token;
+      product = json.product;
+      currency = json.currency;
+      currentPrice = json.currentPrice;
+      questions = json.questions || [];
+
+      intro.style.display = 'block';
+      intro.textContent = `Product: ${product} — Current Price: ${currency} ${currentPrice}`;
+
+      // Start Q&A
+      ix = 0;
+      show(qaWrap);
+      hide(actions);
+      hide(guessWrap);
+      renderQuestion();
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+
+  function answer(val){
+    answers[ix] = !!val;
+    ix += 1;
+    if(ix < 10){
+      renderQuestion();
+    }else{
+      hide(qaWrap);
+      show(actions);
+    }
+  }
+
+  yesBtn?.addEventListener('click', ()=>answer(true));
+  noBtn?.addEventListener('click',  ()=>answer(false));
+
+  genBtn?.addEventListener('click', async ()=>{
+    if(!token) return;
+    out.textContent = '💹 Calculating AI 5-year price...';
+    try{
+      const res = await fetch('/api/fpp/answers', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ token, answers })
+      });
+      const json = await res.json();
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      out.textContent = `AI says: ${json.currency} ${json.predicted}\n\nReasoning: ${json.explanation}`;
+      show(guessWrap);
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+
+  submitGuess?.addEventListener('click', async ()=>{
+    if(!token) return;
+    const g = Number(guessInput.value);
+    if(!isFinite(g)){ out.textContent = 'Please enter a numeric guess.'; return; }
+    out.textContent = '🔢 Checking your guess...';
+    try{
+      const res = await fetch('/api/fpp/guess', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ token, guess: g })
+      });
+      const json = await res.json();
+      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      out.textContent = (json.win
+        ? `${json.message}\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+        : `${json.message}\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+      );
+      guessInput.value = '';
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+})();
