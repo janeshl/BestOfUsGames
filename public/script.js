@@ -98,16 +98,16 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   });
 })();
 
-// Find the Character (conversational)
+// Find the Character (conversational) — 5 rounds, hint only in last round, congrats in chat
 (function(){
   const startForm = $('#start-form');
   const turnForm = $('#turn-form');
   const chat = $('#chat');
   const rounds = $('#rounds');
-  const result = $('#result');
-  const answerBox = $('#answer-box');
+  const result = $('#result'); // kept for compatibility, but no longer used for messages
   if(!startForm || !chat) return;
-  let sessionId = null, roundsLeft = 10;
+
+  let sessionId = null, roundsLeft = 5;
 
   function pushMsg(who, text){
     const d = document.createElement('div'); d.className='msg';
@@ -126,11 +126,12 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       const json = await res.json();
       if(!json.ok){ html(chat, 'Error: ' + (json.error || 'Unknown error')); return; }
       sessionId = json.sessionId;
-      roundsLeft = 10;
+      roundsLeft = 5;
       $('#game').style.display = 'block';
       html(chat, '');
       pushMsg('AI', json.message || 'Ask your first yes/no question!');
       setText(rounds, 'Rounds left: ' + roundsLeft);
+      if(result) result.innerHTML = ''; // not used anymore
     }catch{ html(chat, 'Network error. Please try again.'); }
   });
 
@@ -140,21 +141,37 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
       if(!sessionId) return;
       const line = $('#userline').value.trim();
       if(!line) return;
+
       pushMsg('You', line);
       $('#userline').value='';
+
       try{
         const res = await fetch('/api/character/turn', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, text: line }) });
         const json = await res.json();
         if(!json.ok){ pushMsg('AI', 'Error: ' + (json.error || 'Unknown error')); return; }
-        if(json.answer){ pushMsg('AI', json.answer); if(answerBox){ answerBox.textContent = json.answer; } }
-        if(json.hint){ pushMsg('AI', '💡 Hint: ' + json.hint); }
+
+        if(json.answer){ pushMsg('AI', json.answer); }
+        if(json.hint){   pushMsg('AI', '💡 Hint: ' + json.hint); }
+
         if(json.done){
-          if(json.win){ html(result, '<div class="pill">🎉 Correct! You found ' + json.name + '.</div>'); }
-          else { html(result, '<div class="pill">🕵️ Out of rounds. The character was ' + json.name + '.</div>'); }
-          sessionId = null; if(json.message) pushMsg('AI', json.message); return;
+          if(json.win){
+            // Congratulate directly in chat
+            pushMsg('AI', `🎉 Correct! You found ${json.name}.`);
+          } else {
+            pushMsg('AI', `🕵️ Out of rounds. The character was ${json.name}.`);
+          }
+          sessionId = null;
+          if(json.message) pushMsg('AI', json.message);
+          return;
         }
-        if(typeof json.roundsLeft === 'number'){ roundsLeft = json.roundsLeft; setText(rounds, 'Rounds left: ' + roundsLeft); }
-      }catch{ pushMsg('AI', 'Network error. Please try again.'); }
+
+        if(typeof json.roundsLeft === 'number'){
+          roundsLeft = json.roundsLeft;
+          setText(rounds, 'Rounds left: ' + roundsLeft);
+        }
+      }catch{
+        pushMsg('AI', 'Network error. Please try again.');
+      }
     });
   }
 })();
