@@ -175,3 +175,84 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
     });
   }
 })();
+// Find the Healthy-Diet (8 Qs; 4 + 4; then generate plan)
+(function(){
+  const card = document.getElementById('hd-card');
+  if(!card) return;
+
+  const loading = document.getElementById('hd-loading');
+  const r1 = document.getElementById('hd-round1');
+  const r2 = document.getElementById('hd-round2');
+  const actions = document.getElementById('hd-actions');
+  const out = document.getElementById('hd-output');
+
+  let token = null;
+  let questions = [];
+  const answers = new Array(8).fill("");
+
+  // helpers
+  const show = (el) => el && el.classList.remove('hidden');
+  const hide = (el) => el && el.classList.add('hidden');
+
+  async function start(){
+    try{
+      const res = await fetch('/api/healthy/start', { method:'POST' });
+      const json = await res.json();
+      if(!json.ok){ loading.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
+      token = json.token;
+      questions = json.questions || [];
+      // Fill round 1 labels
+      document.getElementById('hd-q1').textContent = questions[0] || 'Question 1';
+      document.getElementById('hd-q2').textContent = questions[1] || 'Question 2';
+      document.getElementById('hd-q3').textContent = questions[2] || 'Question 3';
+      document.getElementById('hd-q4').textContent = questions[3] || 'Question 4';
+      // Fill round 2 labels
+      document.getElementById('hd-q5').textContent = questions[4] || 'Question 5';
+      document.getElementById('hd-q6').textContent = questions[5] || 'Question 6';
+      document.getElementById('hd-q7').textContent = questions[6] || 'Question 7';
+      document.getElementById('hd-q8').textContent = questions[7] || 'Question 8';
+      // Show first round
+      hide(loading); show(r1);
+    }catch{
+      loading.textContent = 'Network error. Please try again.';
+    }
+  }
+
+  r1?.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const a1 = r1.a1.value.trim(), a2 = r1.a2.value.trim(), a3 = r1.a3.value.trim(), a4 = r1.a4.value.trim();
+    if(!a1 || !a2 || !a3 || !a4) return;
+    answers[0]=a1; answers[1]=a2; answers[2]=a3; answers[3]=a4;
+    r1.a1.value=''; r1.a2.value=''; r1.a3.value=''; r1.a4.value='';
+    hide(r1); show(r2);
+  });
+
+  r2?.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const a5 = r2.a5.value.trim(), a6 = r2.a6.value.trim(), a7 = r2.a7.value.trim(), a8 = r2.a8.value.trim();
+    if(!a5 || !a6 || !a7 || !a8) return;
+    answers[4]=a5; answers[5]=a6; answers[6]=a7; answers[7]=a8;
+    r2.a5.value=''; r2.a6.value=''; r2.a7.value=''; r2.a8.value='';
+    hide(r2); show(actions);
+    out.textContent = "Ready to generate a personalized diet plan based on your answers.";
+  });
+
+  document.getElementById('hd-generate')?.addEventListener('click', async ()=>{
+    if(!token) return;
+    out.textContent = "🥗 Generating your diet plan...";
+    try{
+      const res = await fetch('/api/healthy/plan', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ token, answers })
+      });
+      const json = await res.json();
+      out.textContent = json.ok ? (json.plan || "No content") : ('Error: ' + (json.error || 'Unknown error'));
+    }catch{
+      out.textContent = 'Network error. Please try again.';
+    }
+  });
+
+  start();
+})();
+
