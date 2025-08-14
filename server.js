@@ -21,34 +21,62 @@ const sessions = new Map();
 const recentByTopic = new Map();
 const makeId = customAlphabet("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 10);
 
+/* ------------------------
+   Prompt templates
+------------------------- */
 const PROMPTS = {
   fortune: ({name,birthMonth,favoritePlace}) => [
     { role: "system", content: "You are a funny fortune teller. Create playful, positive predictions in 2-3 sentences. Use the inputs naturally. Keep it light; no health, death, or lottery claims." },
     { role: "user", content: `Make a humorous future prediction for:\nName: ${name}\nBirth month: ${birthMonth}\nFavorite place: ${favoritePlace}` }
   ],
+
   quiz: (topic) => [
     { role: "system", content: "Create a 5-question multiple-choice quiz for the given topic. For EACH question, provide exactly 4 options and indicate the correct option index. Return STRICT JSON with shape: { questions: [ { question: string, options: string[4], answerIndex: 1|2|3|4, explanation: string } x5 ] }. Keep questions clear, fair, and varied difficulty. Do NOT include any extra text." },
     { role: "user", content: `Topic: ${topic}. Return JSON only.` }
   ],
+
   characterCandidates: (topic) => [
     { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known people or fictional characters related to the topic. No other text." },
     { role: "user", content: `Topic: ${topic}. JSON only.` }
   ],
-  characterTurn: ({name, qa, round, text}) => [
-    { role: "system", content: `You are running a 20-questions style game. The secret answer is "${name}".
-Respond to the user's message as a short yes/no style answer (<= 15 words), without revealing the name.
-Also determine if the user is explicitly making a guess of the character's name.
-Return strict JSON with keys:
+
+  // Updated: supports last-round-only hint and roundsMax
+  characterTurn: ({name, qa, round, roundsMax, text, isLastRound}) => [
+    {
+      role: "system",
+      content:
+`You run a 20-questions-style game. The secret answer is "${name}".
+Respond concisely with yes/no style answers (<= 15 words) without revealing the name.
+Detect if the user is explicitly guessing the character's name.
+
+Return STRICT JSON with keys:
 - answer: string
 - isGuess: boolean
 - guessedName: string
-- hint: string (empty if no hint this turn)
-If current round is >= 7, include a helpful hint that makes the game easier but does not reveal the name.
-Do NOT include extra text.` },
-    { role: "user", content: `Previous Q&A:\n${qa}\nCurrent Round: ${round}\nUser message: ${text}` }
+- hint: string (MUST be empty unless it's the last round)
+
+Rules about hints:
+- Provide exactly ONE helpful hint only if it's the last round.
+- The hint must make the game easier but MUST NOT reveal or directly name the character.
+- If it's not the last round, hint must be "" (empty string).`
+    },
+    {
+      role: "user",
+      content:
+`Previous Q&A:
+${qa || "(none)"}
+
+Current Round: ${round} of ${roundsMax}
+Is Last Round: ${isLastRound}
+
+User message: ${text}`
+    }
   ]
 };
 
+/* ------------------------
+   Groq Chat Completion
+------------------------- */
 async function chatCompletion(messages, temperature = 0.7, max_tokens = 256) {
   const res = await fetch(GROQ_URL, {
     method: "POST",
@@ -60,7 +88,9 @@ async function chatCompletion(messages, temperature = 0.7, max_tokens = 256) {
   return data?.choices?.[0]?.message?.content?.trim() ?? "";
 }
 
-/* Game 1: Predict the Future */
+/* ========================
+   Game 1: Predict the Future
+======================== */
 app.post("/api/predict-future", async (req, res) => {
   try {
     const { name, birthMonth, favoritePlace } = req.body ?? {};
@@ -70,7 +100,9 @@ app.post("/api/predict-future", async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-/* Game 2: 5-Round Quiz */
+/* ========================
+   Game 2: 5-Round Quiz
+======================== */
 app.post("/api/quiz/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
@@ -116,7 +148,13 @@ app.post("/api/quiz/answer", (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
-/* Game 3: Conversational Character */
+/* ========================
+   Game 3: Conversational Character
+   - 5 Q&A rounds
+   - Hint only in the LAST round
+======================== */
+const ROUNDS_MAX = 5;
+
 app.post("/api/character/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
@@ -132,7 +170,11 @@ app.post("/api/character/start", async (req, res) => {
     recentByTopic.set(topic, [name, ...rec].slice(0,5));
     const id = makeId();
     sessions.set(id, { type: "character", topic, name, rounds: 0, history: [], createdAt: Date.now() });
-    res.json({ ok: true, sessionId: id, message: "Ask yes/no questions about the secret character. You have 10 rounds. Natural guesses are accepted." });
+    res.json({
+      ok: true,
+      sessionId: id,
+      message: `Ask yes/no questions about the secret character. You have ${ROUNDS_MAX} rounds. Natural guesses are accepted.`
+    });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -143,31 +185,76 @@ app.post("/api/character/turn", async (req, res) => {
     if (!s) return res.status(400).json({ ok: false, error: "Session not found." });
 
     const qa = s.history.map((h,i)=>`Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join("\n");
-    const messages = PROMPTS.characterTurn({ name: s.name, qa, round: s.rounds+1, text });
+
+    // Work out current round & last-round flag BEFORE incrementing
+    const currentRound = s.rounds + 1;           // 1..ROUNDS_MAX
+    const roundsLeftBefore = ROUNDS_MAX - s.rounds;
+    const isLastRound = roundsLeftBefore === 1;  // Only then we request/allow a hint
+
+    const messages = PROMPTS.characterTurn({
+      name: s.name,
+      qa,
+      round: currentRound,
+      roundsMax: ROUNDS_MAX,
+      text,
+      isLastRound
+    });
 
     let parsed = { answer: "Okay.", isGuess: false, guessedName: "", hint: "" };
-    try { const raw = await chatCompletion(messages, 0.4, 160); parsed = JSON.parse(raw); } catch {}
+    try {
+      const raw = await chatCompletion(messages, 0.4, 200);
+      parsed = JSON.parse(raw);
+    } catch {}
 
+    // Record turn
     s.rounds += 1;
     s.history.push({ q: text || "", a: parsed.answer || "" });
 
+    // Check for explicit guess
     if (parsed.isGuess && parsed.guessedName) {
       const correct = parsed.guessedName.trim().toLowerCase() === s.name.trim().toLowerCase();
       if (correct) {
         sessions.delete(sessionId);
-        return res.json({ ok: true, done: true, win: true, name: s.name, answer: parsed.answer, hint: parsed.hint || "" });
+        return res.json({
+          ok: true,
+          done: true,
+          win: true,
+          name: s.name,
+          answer: parsed.answer,
+          hint: parsed.hint || ""   // client can display if provided (e.g., in last round)
+        });
       }
     }
 
-    if (s.rounds >= 10) {
+    // Out of rounds?
+    if (s.rounds >= ROUNDS_MAX) {
       const reveal = `Out of rounds! The character was: ${s.name}.`;
       sessions.delete(sessionId);
-      return res.json({ ok: true, done: true, win: false, name: s.name, answer: parsed.answer, hint: parsed.hint || "", message: reveal });
+      return res.json({
+        ok: true,
+        done: true,
+        win: false,
+        name: s.name,
+        answer: parsed.answer,
+        hint: parsed.hint || "",    // in last round we allowed one hint
+        message: reveal
+      });
     }
 
-    const showHint = (s.rounds >= 7) && (parsed.hint || "").trim().length;
-    res.json({ ok: true, done: false, answer: parsed.answer, hint: showHint ? parsed.hint : "", roundsLeft: 10 - s.rounds });
-  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    // Continue game
+    const roundsLeft = ROUNDS_MAX - s.rounds;
+    const hintToShow = isLastRound ? (parsed.hint || "") : ""; // only last round shows hint
+    res.json({
+      ok: true,
+      done: false,
+      answer: parsed.answer,
+      hint: hintToShow,
+      roundsLeft
+    });
+
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
