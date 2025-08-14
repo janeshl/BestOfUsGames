@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find the Character</title>
+  <link rel="stylesheet" href="styling.css" />
+</head>
+<body class="container">
+  <a href="./index.html" class="back"><span class="btn-icon">←</span> Back</a>
+  <h2 class="section-title">Find the Character</h2>
+
+  <article class="card">
+    <form id="start-form" class="game-form">
+      <input name="topic" placeholder="Enter a topic (e.g., Marvel, Indian Cricket, Mythology)" required />
+      <button class="btn" type="submit"><span>Start Game</span><span class="btn-icon">▶</span></button>
+    </form>
+
+    <div id="game" style="display:none">
+      <div class="badge" id="rounds"></div>
+      <div class="chat" id="chat"></div>
+      <form id="turn-form" class="game-form row" style="margin-top:10px">
+        <input id="answer" placeholder="Your answer (yes/no/short)..." />
+        <input id="guess" placeholder="Guess the character (optional)" />
+        <button class="btn" type="submit"><span>Send</span><span class="btn-icon">➤</span></button>
+      </form>
+      <div id="result"></div>
+    </div>
+  </article>
+
+<script>
+let sessionId = null;
+let roundsLeft = 10;
+
+const chat = document.getElementById('chat');
+const rounds = document.getElementById('rounds');
+const result = document.getElementById('result');
+
+document.getElementById('start-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  chat.innerHTML = '<div class="pill">Picking a secret character...</div>';
+  const topic = e.target.topic.value;
+  const res = await fetch('/api/character/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ topic }) });
+  const json = await res.json();
+  if(!json.ok){ chat.innerHTML = 'Error: ' + json.error; return; }
+  sessionId = json.sessionId;
+  roundsLeft = json.roundsLeft;
+  document.getElementById('game').style.display = 'block';
+  chat.innerHTML = '';
+  pushMsg('AI', json.question);
+  rounds.textContent = 'Rounds left: ' + roundsLeft;
+});
+
+document.getElementById('turn-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if(!sessionId) return;
+  const ans = document.getElementById('answer').value.trim();
+  const guess = document.getElementById('guess').value.trim();
+  if(ans){ pushMsg('You', ans); }
+  const res = await fetch('/api/character/next', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, answer: ans, guess }) });
+  document.getElementById('answer').value='';
+  document.getElementById('guess').value='';
+  const json = await res.json();
+  if(!json.ok){ pushMsg('AI', 'Error: ' + json.error); return; }
+  if(json.done){
+    if(json.win){
+      result.innerHTML = '<div class="pill">🎉 Congrats! You found ' + json.name + '!</div>';
+    } else {
+      result.innerHTML = '<div class="pill">🕵️ Game over. The character was ' + json.name + '.</div>';
+    }
+    sessionId = null;
+    pushMsg('AI', json.message || '');
+    return;
+  }
+  if(json.question){ pushMsg('AI', json.question); }
+  roundsLeft = json.roundsLeft;
+  rounds.textContent = 'Rounds left: ' + roundsLeft;
+});
+
+function pushMsg(who, text){
+  const d = document.createElement('div');
+  d.className = 'msg';
+  d.innerHTML = '<b>' + who + ':</b> ' + text;
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+</body>
+</html>
