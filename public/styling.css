@@ -67,10 +67,10 @@ a:hover{text-decoration:underline}
   text-transform:uppercase;
   text-shadow:0 0 18px rgba(138,92,246,.55);
 }
-.lead{color:var(--muted);font-size:clamp(18px,2.2vw,22px);max-width:42ch;margin:8px 0 28px}
+.lead{color:var(--muted);font-size:clamp(18px,2.2vw,22px);max-width:60ch;margin:8px auto 22px}
 
 /* ================================
-   HERO (Index) — Full background
+   HERO (Index) — Full-screen video
 ================================== */
 .hero{
   position:relative;
@@ -80,23 +80,46 @@ a:hover{text-decoration:underline}
   justify-content:center;
   text-align:center;
   color:#fff;
-  background:linear-gradient(180deg, rgba(7,7,25,.25), rgba(7,7,25,.65)),
-             url("./images/ai-gear.jpg") center center / cover no-repeat fixed;
-}
-@media (max-width: 900px){
-  .hero{
-    background-attachment:scroll;  /* smoother on mobile */
-  }
-}
-.hero-content{
-  background:linear-gradient(180deg, rgba(12,12,34,.75), rgba(12,12,34,.88));
-  border:1px solid var(--border);
-  border-radius:20px;
-  padding:clamp(24px,4vw,40px) clamp(24px,5vw,56px);
-  box-shadow:var(--shadow-lg);
+  overflow:hidden;                 /* crop video edges */
 }
 
-/* Hide the old media block if still present */
+/* Video layer */
+.hero-video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;                /* fill & crop */
+  z-index:0;
+  filter:brightness(.8) saturate(1.05); /* mild correction for readability */
+}
+
+/* Optional dark overlay for readability */
+.hero::before{
+  content:"";
+  position:absolute; inset:0;
+  background:linear-gradient(180deg, rgba(7,7,25,.35), rgba(7,7,25,.65));
+  z-index:1;
+}
+
+/* Content over the video */
+.hero-content{
+  position:relative; z-index:2;
+  background:linear-gradient(180deg, rgba(12,12,34,.50), rgba(12,12,34,.70));
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:clamp(22px,4vw,40px) clamp(22px,5vw,56px);
+  box-shadow:var(--shadow-lg);
+  width:min(900px, 92vw);
+  margin:0 auto;
+}
+
+@media (max-width: 900px){
+  /* Allow mobile to handle video smoothly */
+  .hero-video{ filter:brightness(.85) }
+}
+
+/* Hide the old hero-media block if any remains in markup */
 .hero-media{display:none}
 
 /* ================================
@@ -202,7 +225,6 @@ pre.result, .pill{
   border-radius:12px;cursor:pointer;transition:border-color .18s ease, transform .12s ease
 }
 .option:hover{border-color:rgba(138,92,246,.35);transform:translateY(-1px)}
-/* visual feedback when JS applies inline colors: success/danger */
 .option.is-correct{border-color:rgba(51,200,120,.8)}
 .option.is-wrong{border-color:rgba(255,80,80,.8)}
 
