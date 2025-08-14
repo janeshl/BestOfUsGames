@@ -54,11 +54,18 @@ Favorite place: ${favoritePlace}`,
 
   // Game 3: Guess the Character
   characterCandidates: (topic) => [
-    { role: "system", content: "Return STRICT JSON {candidates: string[]} of 5 well-known medium level difficulty to find out people or fictional characters related to the topic. No other text." },
-    { role: "user", content: `Topic: ${topic}. JSON only.` }
+    {
+      role: "system",
+      content:
+        "Return STRICT JSON {candidates: string[]} of 5 well-known medium level difficulty to find out people or fictional characters related to the topic. No other text.",
+    },
+    { role: "user", content: `Topic: ${topic}. JSON only.` },
   ],
-  characterTurn: ({name, qa, round, text}) => [
-    { role: "system", content: `You are running a 20-questions style game. The secret answer is "${name}".
+
+  characterTurn: ({ name, qa, round, text }) => [
+    {
+      role: "system",
+      content: `You are running a 20-questions style game. The secret answer is "${name}".
 Respond to the user's message as a short yes/no style answer (<= 15 words), without revealing the name.
 Also determine if the user is explicitly making a guess of the character's name.
 Return strict JSON with keys:
@@ -67,11 +74,25 @@ Return strict JSON with keys:
 - guessedName: string
 - hint: string (empty if no hint this turn)
 If current round is >= 8, include a helpful different hints that makes the game easier but does not reveal the name.
-Do NOT include extra text.` },
-    { role: "user", content: `Previous Q&A:\n${qa}\nCurrent Round: ${round}\nUser message: ${text}` }
-  ]
-};
+Do NOT include extra text.`,
+    },
+    {
+      role: "user",
+      content: `Previous Q&A:\n${qa}\nCurrent Round: ${round}\nUser message: ${text}`,
+    },
+  ],
 
+  // Game 4: Healthy Diet — generate the 8 questions
+  healthyQuestions: () => [
+    {
+      role: "system",
+      content:
+        "Generate exactly 8 short, clear questions needed to draft a safe, practical diet plan. Return STRICT JSON: { \"questions\": string[8] }. No extra text.",
+    },
+    { role: "user", content: "JSON only." },
+  ],
+
+  // Game 4: Healthy Diet — build the plan
   healthyPlan: ({ questions, answers }) => [
     {
       role: "system",
@@ -141,9 +162,7 @@ Rules:
 Currency: ${currency}
 Current Price: ${currentPrice}
 Answers (Y/N):
-${qa
-  .map((a, i) => `Q${i + 1}: ${a.q}\nA${i + 1}: ${a.a ? "Yes" : "No"}`)
-  .join("\n")}
+${qa.map((a, i) => `Q${i + 1}: ${a.q}\nA${i + 1}: ${a.a ? "Yes" : "No"}`).join("\n")}
 JSON only.`,
     },
   ],
@@ -195,9 +214,7 @@ app.post("/api/quiz/start", async (req, res) => {
       const raw = await chatCompletion(messages, 0.5, 900);
       parsed = JSON.parse(raw);
     } catch {}
-    const questions = Array.isArray(parsed.questions)
-      ? parsed.questions.slice(0, 5)
-      : [];
+    const questions = Array.isArray(parsed.questions) ? parsed.questions.slice(0, 5) : [];
     while (questions.length < 5) {
       questions.push({
         question: `Placeholder Q${questions.length + 1} about ${topic}?`,
@@ -207,8 +224,7 @@ app.post("/api/quiz/start", async (req, res) => {
           "This is a placeholder. Regenerate with a clearer topic for a better quiz.",
       });
     }
-    const token =
-      "QZ" + Math.random().toString(36).slice(2, 10).toUpperCase();
+    const token = "QZ" + Math.random().toString(36).slice(2, 10).toUpperCase();
     sessions.set(token, {
       type: "quiz",
       topic,
@@ -277,19 +293,27 @@ app.post("/api/character/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
     const chooseMessages = PROMPTS.characterCandidates(topic);
-    let candidates = ["Albert Einstein","Iron Man","Taylor Swift","Narendra Modi","Sherlock Holmes"];
+    let candidates = ["Albert Einstein", "Iron Man", "Taylor Swift", "Narendra Modi", "Sherlock Holmes"];
     try {
       const raw = await chatCompletion(chooseMessages, 0.7, 120);
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.candidates) && parsed.candidates.length) candidates = parsed.candidates;
     } catch {}
     const rec = recentByTopic.get(topic) || [];
-    let name = candidates.find(c => !rec.map(x=>x.toLowerCase()).includes(c.toLowerCase())) || candidates[0];
-    recentByTopic.set(topic, [name, ...rec].slice(0,5));
+    let name =
+      candidates.find((c) => !rec.map((x) => x.toLowerCase()).includes(c.toLowerCase())) ||
+      candidates[0];
+    recentByTopic.set(topic, [name, ...rec].slice(0, 5));
     const id = makeId();
     sessions.set(id, { type: "character", topic, name, rounds: 0, history: [], createdAt: Date.now() });
-    res.json({ ok: true, sessionId: id, message: "Ask yes/no questions about the secret character. You have 10 rounds. Natural guesses are accepted." });
-  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    res.json({
+      ok: true,
+      sessionId: id,
+      message: "Ask yes/no questions about the secret character. You have 10 rounds. Natural guesses are accepted.",
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 app.post("/api/character/turn", async (req, res) => {
@@ -298,11 +322,14 @@ app.post("/api/character/turn", async (req, res) => {
     const s = sessions.get(sessionId);
     if (!s) return res.status(400).json({ ok: false, error: "Session not found." });
 
-    const qa = s.history.map((h,i)=>`Q${i+1}: ${h.q}\nA${i+1}: ${h.a}`).join("\n");
-    const messages = PROMPTS.characterTurn({ name: s.name, qa, round: s.rounds+1, text });
+    const qa = s.history.map((h, i) => `Q${i + 1}: ${h.q}\nA${i + 1}: ${h.a}`).join("\n");
+    const messages = PROMPTS.characterTurn({ name: s.name, qa, round: s.rounds + 1, text });
 
     let parsed = { answer: "Okay.", isGuess: false, guessedName: "", hint: "" };
-    try { const raw = await chatCompletion(messages, 0.4, 160); parsed = JSON.parse(raw); } catch {}
+    try {
+      const raw = await chatCompletion(messages, 0.4, 160);
+      parsed = JSON.parse(raw);
+    } catch {}
 
     s.rounds += 1;
     s.history.push({ q: text || "", a: parsed.answer || "" });
@@ -311,19 +338,42 @@ app.post("/api/character/turn", async (req, res) => {
       const correct = parsed.guessedName.trim().toLowerCase() === s.name.trim().toLowerCase();
       if (correct) {
         sessions.delete(sessionId);
-        return res.json({ ok: true, done: true, win: true, name: s.name, answer: parsed.answer, hint: parsed.hint || "" });
+        return res.json({
+          ok: true,
+          done: true,
+          win: true,
+          name: s.name,
+          answer: parsed.answer,
+          hint: parsed.hint || "",
+        });
       }
     }
 
     if (s.rounds >= 10) {
       const reveal = `Out of rounds! The character was: ${s.name}.`;
       sessions.delete(sessionId);
-      return res.json({ ok: true, done: true, win: false, name: s.name, answer: parsed.answer, hint: parsed.hint || "", message: reveal });
+      return res.json({
+        ok: true,
+        done: true,
+        win: false,
+        name: s.name,
+        answer: parsed.answer,
+        hint: parsed.hint || "",
+        message: reveal,
+      });
     }
 
-    const showHint = (s.rounds >= 8) && (parsed.hint || "").trim().length;
-    res.json({ ok: true, done: false, answer: parsed.answer, hint: showHint ? parsed.hint : "", roundsLeft: 10 - s.rounds });
-  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+    const showHint = s.rounds >= 8 && (parsed.hint || "").trim().length;
+    res.json({
+      ok: true,
+      done: false,
+      answer: parsed.answer,
+      hint: showHint ? parsed.hint : "",
+      roundsLeft: 10 - s.rounds,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 /* ========================
@@ -348,8 +398,7 @@ app.post("/api/healthy/start", async (_req, res) => {
         questions = parsed.questions;
       }
     } catch {}
-    const token =
-      "HD" + Math.random().toString(36).slice(2, 10).toUpperCase();
+    const token = "HD" + Math.random().toString(36).slice(2, 10).toUpperCase();
     sessions.set(token, { type: "healthy", questions, createdAt: Date.now() });
     res.json({ ok: true, token, questions });
   } catch (e) {
@@ -364,9 +413,7 @@ app.post("/api/healthy/plan", async (req, res) => {
     if (!s || s.type !== "healthy")
       return res.status(400).json({ ok: false, error: "Session not found/expired." });
     if (!Array.isArray(answers) || answers.length !== 8) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Please provide all 8 answers." });
+      return res.status(400).json({ ok: false, error: "Please provide all 8 answers." });
     }
     const messages = PROMPTS.healthyPlan({ questions: s.questions, answers });
     const content = await chatCompletion(messages, 0.6, 1200);
@@ -379,10 +426,6 @@ app.post("/api/healthy/plan", async (req, res) => {
 
 /* ========================
    Game 5: Future Price Prediction
-   Flow:
-   - /api/fpp/start: suggest product + price + 10 questions
-   - /api/fpp/answers: record 10 booleans, compute AI price (DO NOT return it)
-   - /api/fpp/guess: evaluate guess vs AI price (±60%), reveal both
 ======================== */
 app.post("/api/fpp/start", async (req, res) => {
   try {
@@ -414,18 +457,13 @@ app.post("/api/fpp/start", async (req, res) => {
       "Will import/export duties increase?",
     ];
     try {
-      const rawQ = await chatCompletion(
-        PROMPTS.priceQuestions(suggestion.product),
-        0.4,
-        280
-      );
+      const rawQ = await chatCompletion(PROMPTS.priceQuestions(suggestion.product), 0.4, 280);
       const parsedQ = JSON.parse(rawQ);
       if (Array.isArray(parsedQ?.questions) && parsedQ.questions.length === 10)
         questions = parsedQ.questions;
     } catch {}
 
-    const token =
-      "FP" + Math.random().toString(36).slice(2, 10).toUpperCase();
+    const token = "FP" + Math.random().toString(36).slice(2, 10).toUpperCase();
     sessions.set(token, {
       type: "fpp",
       product: suggestion.product,
@@ -458,9 +496,7 @@ app.post("/api/fpp/answers", async (req, res) => {
     if (!s || s.type !== "fpp")
       return res.status(400).json({ ok: false, error: "Session not found/expired." });
     if (!Array.isArray(answers) || answers.length !== 10) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Send an array of 10 booleans for answers." });
+      return res.status(400).json({ ok: false, error: "Send an array of 10 booleans for answers." });
     }
 
     s.answers = answers.map((a) => !!a);
@@ -511,9 +547,7 @@ app.post("/api/fpp/guess", (req, res) => {
       return res.status(400).json({ ok: false, error: "Provide numeric 'guess'." });
     }
     if (typeof s.predictedPrice !== "number" || !isFinite(s.predictedPrice)) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Prediction not ready. Submit answers first." });
+      return res.status(400).json({ ok: false, error: "Prediction not ready. Submit answers first." });
     }
 
     const ai = s.predictedPrice;
@@ -528,10 +562,8 @@ app.post("/api/fpp/guess", (req, res) => {
       playerGuess: guess,
       aiPrice: ai,
       currency: s.currency,
-      message: win
-        ? "🎉 Great guess! You matched within 60%."
-        : "❌ Not quite. Better luck next time!",
-      explanation: s.explanation, // optional: include reasoning now
+      message: win ? "🎉 Great guess! You matched within 60%." : "❌ Not quite. Better luck next time!",
+      explanation: s.explanation,
     });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
@@ -543,6 +575,4 @@ app.post("/api/fpp/guess", (req, res) => {
 ======================== */
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
 
-app.listen(PORT, () =>
-  console.log(`✅ Server running at http://localhost:${PORT}`)
-);
+app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
