@@ -27,6 +27,29 @@ function showAnimatedResult(el, text, variant='info'){
 }
 
 /* =====================
+   Game 1: Predict the Future
+===================== */
+(function(){
+  const form = document.getElementById('f-form');
+  const out = document.getElementById('f-out');
+  if(!form || !out) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showAnimatedResult(out, '🔮 Summoning prophecies...', 'info');
+    const data = { name: form.name.value.trim(), birthMonth: form.birthMonth.value, favoritePlace: form.place.value.trim() };
+    try{
+      const res = await fetch('/api/predict-future', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const json = await res.json();
+      const text = json.ok ? json.content : ('Error: ' + (json.error || 'Unknown error'));
+      showAnimatedResult(out, text, json.ok ? 'info' : 'lose');
+      form.name.value=''; form.birthMonth.selectedIndex=0; form.place.value='';
+    }catch{
+      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
+    }
+  });
+})();
+
+/* =====================
    Game 2: Hard Quiz with 20s timer and no repeats server-side
 ===================== */
 (function(){
@@ -65,30 +88,30 @@ function showAnimatedResult(el, text, variant='info'){
     try{
       const res = await fetch('/api/quiz/answer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, choice: choiceIndex }) });
       const json = await res.json();
-      if(!json.ok){ nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>'; lock=false; return; }
+      if(!json.ok){ nextEl.style.display='block'; nextEl.className='result'; nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>'; lock=false; return; }
       if(clickedEl){
         clickedEl.style.borderColor = json.correct ? 'rgba(51,200,120,.8)' : 'rgba(255,80,80,.8)';
       } else {
-        nextEl.innerHTML = '<div class="pill">⏳ Time up — counted as wrong.</div>';
+        nextEl.style.display='block'; nextEl.className='result'; nextEl.innerHTML = '<div class="pill">⏳ Time up — counted as wrong.</div>';
       }
       if(json.explanation){ explEl.textContent = json.explanation; explEl.style.display='block'; } else { explEl.style.display='none'; }
       if(json.done){
         showAnimatedResult(nextEl, '🏁 Finished! Score: '+json.score+' / '+json.total, json.score >= 4 ? 'win' : 'lose');
         return;
       }
-      nextEl.innerHTML='';
+      nextEl.style.display='block'; nextEl.className='result'; nextEl.innerHTML='';
       const b = document.createElement('button'); b.className='btn'; b.textContent='Next';
       b.onclick = (e)=>{ e.preventDefault(); renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options); };
       nextEl.appendChild(b);
       lock=false;
-    }catch{ nextEl.innerHTML='<div class="pill">Network error.</div>'; lock=false; }
+    }catch{ nextEl.style.display='block'; nextEl.className='result'; nextEl.innerHTML='<div class="pill">Network error.</div>'; lock=false; }
   }
 
   function renderQuestion(idx, total, question, options){
     area.style.display='block';
     status.textContent = 'Question ' + idx + ' of ' + total;
     qEl.textContent = question || '';
-    optsEl.innerHTML = ''; explEl.style.display='none'; explEl.textContent=''; nextEl.innerHTML=''; lock=false;
+    optsEl.innerHTML = ''; explEl.style.display='none'; explEl.textContent=''; nextEl.style.display='none'; nextEl.innerHTML=''; lock=false;
     (options||[]).forEach((opt,i)=>{
       const d = document.createElement('div'); d.className='option'; d.textContent=(i+1)+'. '+opt;
       d.onclick = ()=>submitAnswer(i+1,d); optsEl.appendChild(d);
@@ -236,7 +259,7 @@ function showAnimatedResult(el, text, variant='info'){
 })();
 
 /* =====================
-   Game 6: Budget Glam Builder — animated scoring
+   Game 6: Budget Glam Builder
 ===================== */
 (function(){
   const card = document.getElementById('glam-card');
@@ -275,7 +298,7 @@ function showAnimatedResult(el, text, variant='info'){
       const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=selected.has(i);
       cb.onchange = ()=>{
         if(cb.checked) selected.add(i); else selected.delete(i);
-        if(spendTotal() > budget){ selected.delete(i); cb.checked=false; } // prevent overspend
+        if(spendTotal() > budget){ selected.delete(i); cb.checked=false; }
         updateHUD();
       };
       const text = document.createElement('div'); text.innerHTML = `<b>${it.name}</b><br><small>${it.category} • ${it.ecoFriendly ? '🌱 Eco' : '—'}</small><br>${it.description}`;
@@ -323,102 +346,9 @@ function showAnimatedResult(el, text, variant='info'){
     }catch{ showAnimatedResult(out,'Network error.','lose'); }
   });
 
+  const prevBtn = document.getElementById('glam-prev');
+  const nextBtn = document.getElementById('glam-next');
   prevBtn.addEventListener('click', ()=>{ if(page>0){ page-=1; renderList(); } });
   nextBtn.addEventListener('click', ()=>{ if((page+1)*pageSize < items.length){ page+=1; renderList(); } });
   finishBtn.addEventListener('click', ()=>finish(false));
-})();
-
-/* =====================
-   Game 1: Predict the Future — animated result
-===================== */
-(function(){
-  const form = document.getElementById('f-form');
-  const out = document.getElementById('f-out');
-  if(!form || !out) return;
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    showAnimatedResult(out, '🔮 Summoning prophecies...', 'info');
-    const data = { name: form.name.value.trim(), birthMonth: form.birthMonth.value, favoritePlace: form.place.value.trim() };
-    try{
-      const res = await fetch('/api/predict-future', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-      const json = await res.json();
-      const text = json.ok ? json.content : ('Error: ' + (json.error || 'Unknown error'));
-      showAnimatedResult(out, text, json.ok ? 'info' : 'lose');
-      form.name.value=''; form.birthMonth.selectedIndex=0; form.place.value='';
-    }catch{
-      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
-    }
-  });
-})();
-
-/* =====================
-   Game 4: Find the Healthy-Diet — 2 rounds of 4 Qs, animated plan
-===================== */
-(function(){
-  const startForm = document.getElementById('h-start');
-  const wrap = document.getElementById('h-questions');
-  const roundLabel = document.getElementById('h-round-label');
-  const r1 = document.getElementById('h-round1');
-  const r2 = document.getElementById('h-round2');
-  const c1 = document.getElementById('h-controls1');
-  const c2 = document.getElementById('h-controls2');
-  const nextBtn = document.getElementById('h-next');
-  const prevBtn = document.getElementById('h-prev');
-  const genBtn = document.getElementById('h-generate');
-  const out = document.getElementById('h-out');
-  if(!startForm) return;
-
-  let token = null, questions = new Array(8).fill('');
-  const answers = new Array(8).fill('');
-
-  function makeInput(idx, q){
-    const div = document.createElement('div');
-    const label = document.createElement('label'); label.className='small'; label.textContent = `Q${idx+1}. ${q}`;
-    const input = document.createElement('input'); input.placeholder='Your answer';
-    input.value = answers[idx] || '';
-    input.oninput = (e)=>{ answers[idx] = e.target.value; };
-    div.appendChild(label); div.appendChild(input);
-    return div;
-  }
-
-  function renderRound1(){
-    roundLabel.textContent = 'Round 1 of 2';
-    r1.innerHTML=''; r2.classList.add('hidden'); c2.classList.add('hidden'); r1.classList.remove('hidden'); c1.classList.remove('hidden');
-    for(let i=0;i<4;i++){ r1.appendChild(makeInput(i, questions[i])); }
-  }
-  function renderRound2(){
-    roundLabel.textContent = 'Round 2 of 2';
-    r2.innerHTML=''; r1.classList.add('hidden'); c1.classList.add('hidden'); r2.classList.remove('hidden'); c2.classList.remove('hidden');
-    for(let i=4;i<8;i++){ r2.appendChild(makeInput(i, questions[i])); }
-  }
-
-  startForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    showAnimatedResult(out, '🩺 Loading your question set...', 'info');
-    try{
-      const res = await fetch('/api/healthy/start', { method:'POST' });
-      const json = await res.json();
-      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
-      token = json.token; questions = (json.questions || questions).slice(0,8);
-      wrap.classList.remove('hidden'); renderRound1(); showAnimatedResult(out, 'Answer the first 4 questions, then click Next.', 'info');
-    }catch{
-      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
-    }
-  });
-
-  nextBtn?.addEventListener('click', ()=>{ renderRound2(); });
-  prevBtn?.addEventListener('click', ()=>{ renderRound1(); });
-  genBtn?.addEventListener('click', async ()=>{
-    if(!token) return;
-    showAnimatedResult(out, '🍽️ Generating your diet plan...', 'info');
-    try{
-      const payload = { token, answers: answers.map(a=>String(a||'').trim()) };
-      const res = await fetch('/api/healthy/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const json = await res.json();
-      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
-      showAnimatedResult(out, json.plan, 'info');
-    }catch{
-      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
-    }
-  });
 })();
