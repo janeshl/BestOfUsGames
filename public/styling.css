@@ -1,20 +1,13 @@
 /* ================================
-   ai-games-groq-v6 — unified styling
-   - Keeps animated results + confetti
-   - Works for: index, games hub, quiz, character,
-                healthy-diet, price prediction, glam
+   Global tokens & base
 ================================== */
 @import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Orbitron:wght@500;700;900&family=Inter:wght@400;600&display=swap');
 
-/* ---------- Design tokens ---------- */
 :root{
-  /* Color system */
+  /* colors */
   --bg:#070719;
   --surface:#0c0c22;
   --surface-2:#10102a;
-  --panel-grad-1: rgba(12,12,34,.55);
-  --panel-grad-2: rgba(12,12,34,.78);
-
   --text:#e7e7ff;
   --muted:#a2a2ce;
   --primary:#8a5cf6;
@@ -22,20 +15,16 @@
   --accent:#33e1ff;
   --success:#33c878;
   --danger:#ff5050;
-  --warning:#ffd166;
   --border:rgba(255,255,255,.08);
   --ring:rgba(138,92,246,.45);
 
-  /* Layout */
+  /* layout */
   --radius:22px;
-  --radius-sm:14px;
-  --radius-pill:999px;
   --shadow-lg:0 18px 60px -20px rgba(0,0,0,.85), 0 0 60px -20px var(--ring);
 }
 
-/* ---------- Base ---------- */
-*{ box-sizing:border-box }
-html,body{ height:100% }
+*{box-sizing:border-box}
+html,body{height:100%}
 body{
   margin:0;
   color:var(--text);
@@ -45,14 +34,15 @@ body{
     var(--bg);
   font:16px/1.6 Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
-a{ color:var(--text); text-decoration:none }
-a:hover{ text-decoration:underline }
-.hidden{ display:none !important }
+a{color:var(--text);text-decoration:none}
+a:hover{text-decoration:underline}
 
-.container{ width:min(1000px,94vw); margin-inline:auto }
-.section{ padding:clamp(48px,8vw,96px) 0 }
+.container{width:min(1000px,94vw);margin-inline:auto}
+.section{padding:clamp(48px,8vw,96px) 0}
 
-/* ---------- Typography ---------- */
+/* ================================
+   Headings
+================================== */
 .section-title{
   font-family:'Russo One',Orbitron,sans-serif;
   font-size:clamp(32px,5vw,60px);
@@ -77,204 +67,99 @@ a:hover{ text-decoration:underline }
   text-transform:uppercase;
   text-shadow:0 0 18px rgba(138,92,246,.55);
 }
-.lead{
-  color:var(--muted);
-  font-size:clamp(18px,2.2vw,22px);
-  max-width:60ch;
-  margin:8px auto 22px;
-}
+.lead{color:var(--muted);font-size:clamp(18px,2.2vw,22px);max-width:42ch;margin:8px 0 28px}
+.lead{color:var(--muted);font-size:clamp(18px,2.2vw,22px);max-width:60ch;margin:8px auto 22px}
 
-/* ---------- Cards / Panels ---------- */
-.card{
-  background:linear-gradient(180deg, var(--panel-grad-1), var(--panel-grad-2));
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:16px;
-  box-shadow:var(--shadow-lg);
-}
-.panel-soft{
-  background:rgba(12,12,34,.6);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-}
-
-/* ---------- Buttons & Chips ---------- */
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px;
-  border:none; color:#fff; cursor:pointer;
-  background:linear-gradient(180deg, var(--primary), var(--primary-2));
-  padding:10px 16px;
-  border-radius:var(--radius-pill);
-  box-shadow:0 10px 28px rgba(138,92,246,.28);
-  transition:transform .12s ease, filter .12s ease, box-shadow .12s ease;
-}
-.btn:hover{ transform:translateY(-1px); filter:brightness(1.05) }
-.btn:disabled{ opacity:.6; cursor:not-allowed }
-
-.badge{
-  background:rgba(24,24,56,.6);
-  border:1px solid var(--border);
-  color:#cbd4ff;
-  border-radius:var(--radius-pill);
-  padding:6px 10px;
-  font-size:12px;
-}
-.pill{
-  background:rgba(16,16,48,.7);
-  border:1px solid var(--border);
-  color:#bcd1ff;
-  border-radius:var(--radius-pill);
-  padding:8px 12px;
-}
-
-/* ---------- Lists & Options ---------- */
-.list{ display:flex; flex-direction:column; gap:10px }
-.option{
-  border:1px solid var(--border);
-  background:linear-gradient(180deg, rgba(18,18,44,.95), rgba(14,14,34,.95));
-  padding:12px;
-  border-radius:12px;
-  transition:border-color .18s ease, transform .12s ease;
-  cursor:pointer;
-}
-.option:hover{ border-color:rgba(138,92,246,.35); transform:translateY(-1px) }
-.option.is-correct{ border-color:rgba(51,200,120,.85) }
-.option.is-wrong{ border-color:rgba(255,80,80,.85) }
-
-/* ---------- Forms ---------- */
-input, select, textarea{
-  width:100%;
-  background:#0c0c22;
-  border:1px solid var(--border);
-  color:#e0e0ff;
-  border-radius:14px;
-  padding:10px 12px;
-  outline:none;
-  transition:border-color .12s ease, box-shadow .12s ease, background .12s ease;
-}
-input::placeholder, textarea::placeholder{ color:#7e86b2 }
-input:focus, select:focus, textarea:focus{
-  border-color:var(--primary);
-  box-shadow:0 0 0 3px rgba(138,92,246,.35);
-  background:#0f0f2a;
-}
-label.small{ font-size:12px; color:var(--muted); margin-bottom:6px; display:block }
-textarea{ min-height:120px; resize:vertical }
-
-/* ---------- Layout helpers ---------- */
-.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
-.grid-2{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px }
-
-/* ---------- Result box (animated) ---------- */
-.result{
-  background:linear-gradient(180deg, rgba(13,18,32,.9), rgba(10,15,26,.92));
-  border:1px dashed rgba(138,92,246,.30);
-  border-radius:12px;
-  padding:12px;
-  white-space:pre-wrap;
-  color:#d9e6ff;
-}
-
-.result-box{ position:relative; overflow:hidden; border-style:solid; border-width:1px }
-.reveal{ animation:fadeUp .6s ease forwards, glowPulse 1.8s ease-in-out 2 }
-
-.result-box.win{
-  border-color:var(--success);
-  box-shadow:0 0 0 1px rgba(58,210,159,.22), 0 14px 46px rgba(58,210,159,.22);
-}
-.result-box.lose{
-  border-color:var(--danger);
-  box-shadow:0 0 0 1px rgba(255,107,107,.22), 0 14px 46px rgba(255,107,107,.20);
-}
-.result-box.info{
-  border-color:var(--primary);
-  box-shadow:0 0 0 1px rgba(138,92,246,.22), 0 14px 46px rgba(138,92,246,.20);
-}
-
-@keyframes fadeUp{
-  from{ opacity:0; transform: translateY(12px) scale(.98) }
-  to{   opacity:1; transform: translateY(0) scale(1) }
-}
-@keyframes glowPulse{
-  0%{ box-shadow:0 0 0 0 rgba(255,255,255,0) }
-  50%{ box-shadow:0 0 0 4px rgba(255,255,255,.06) }
-  100%{ box-shadow:0 0 0 0 rgba(255,255,255,0) }
-}
-
-/* ---------- Confetti (for wins) ---------- */
-.confetti { position: fixed; left: 0; top: 0; width: 100%; height: 0; pointer-events: none; z-index: 9999; }
-.confetti-piece { position:absolute; width:8px; height:14px; opacity:.9; transform: rotate(0deg); animation: confettiFall linear forwards; border-radius:2px }
-@keyframes confettiFall {
-  0% { transform: translateY(-20vh) rotate(0deg); opacity:1; }
-  100% { transform: translateY(100vh) rotate(720deg); opacity:.85; }
-}
-
-/* ---------- Hero (index) with full-screen video ---------- */
+/* ================================
+   HERO (Index) — Full background
+   HERO (Index) — Full-screen video
+================================== */
 .hero{
   position:relative;
-  min-height:100vh;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  text-align:center; color:#fff;
+@@ -80,23 +80,46 @@
+  justify-content:center;
+  text-align:center;
+  color:#fff;
   background:linear-gradient(180deg, rgba(7,7,25,.25), rgba(7,7,25,.65)),
              url("./images/ai-gear.jpg") center center / cover no-repeat fixed;
-  overflow:hidden; /* crop video edges */
+  overflow:hidden;                 /* crop video edges */
 }
 @media (max-width: 900px){
-  .hero{ background-attachment:scroll }
-}
+  .hero{
+    background-attachment:scroll;  /* smoother on mobile */
+  }
+
+/* Video layer */
 .hero-video{
-  position:absolute; inset:0; width:100%; height:100%;
-  object-fit:cover;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;                /* fill & crop */
   z-index:0;
-  filter:brightness(.82) saturate(1.05);
+  filter:brightness(.8) saturate(1.05); /* mild correction for readability */
 }
+
+/* Optional dark overlay for readability */
 .hero::before{
-  content:""; position:absolute; inset:0; z-index:1;
+  content:"";
+  position:absolute; inset:0;
   background:linear-gradient(180deg, rgba(7,7,25,.35), rgba(7,7,25,.65));
+  z-index:1;
 }
+
+/* Content over the video */
 .hero-content{
+  background:linear-gradient(180deg, rgba(12,12,34,.75), rgba(12,12,34,.88));
   position:relative; z-index:2;
   background:linear-gradient(180deg, rgba(12,12,34,.50), rgba(12,12,34,.70));
   border:1px solid var(--border);
   border-radius:20px;
+  padding:clamp(24px,4vw,40px) clamp(24px,5vw,56px);
   padding:clamp(22px,4vw,40px) clamp(22px,5vw,56px);
   box-shadow:var(--shadow-lg);
   width:min(900px, 92vw);
   margin:0 auto;
 }
-.hero-media{ display:none } /* if any old media block exists */
 
-/* ---------- Quiz page tweaks ---------- */
-#quiz-area{ margin-top:10px }
-#quiz-question{ font-weight:600 }
-#quiz-options .option{ user-select:none }
-#quiz-timer{ background:rgba(24,24,56,.6) }
-
-/* ---------- Character game chat ---------- */
-#chat{
-  max-height:340px; overflow:auto;
-  padding:10px;
-  background:#0c0c22;
-  border:1px solid var(--border);
-  border-radius:14px;
+@media (max-width: 900px){
+  /* Allow mobile to handle video smoothly */
+  .hero-video{ filter:brightness(.85) }
 }
-.msg{ padding:6px 10px; background:#111133; border-radius:10px }
-.msg b{ color:#cfe0ff }
 
-/* ---------- Price prediction tweaks ---------- */
-#fpp-intro{ background:rgba(16,16,48,.7); border:1px solid var(--border); border-radius:var(--radius-sm); padding:8px 12px }
+/* Hide the old media block if still present */
+/* Hide the old hero-media block if any remains in markup */
+.hero-media{display:none}
 
-/* ---------- Glam builder HUD ---------- */
-#glam-hud{ display:flex; flex-wrap:wrap; gap:8px }
-#glam-list .option{ display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px }
-#glam-pager{ justify-content:space-between }
+/* ================================
+@@ -202,30 +225,29 @@
+  border-radius:12px;cursor:pointer;transition:border-color .18s ease, transform .12s ease
+}
+.option:hover{border-color:rgba(138,92,246,.35);transform:translateY(-1px)}
+/* visual feedback when JS applies inline colors: success/danger */
+.option.is-correct{border-color:rgba(51,200,120,.8)}
+.option.is-wrong{border-color:rgba(255,80,80,.8)}
 
-/* ---------- Healthy-diet layout ---------- */
-#h-questions .row{ gap:12px }
-#h-round1 .row, #h-round2 .row{ flex-wrap:wrap }
+/* ================================
+   Character game chat
+================================== */
+.chat{
+  display:grid;gap:8px;
+  max-height:340px;overflow:auto;
+  padding:10px;background:#0c0c22;border:1px solid var(--border);border-radius:14px
+}
+.msg{padding:6px 10px;background:#111133;border-radius:10px}
 
-/* ---------- Small screens ---------- */
-@media (max-width: 520px){
-  .section-title{ font-size: clamp(26px,6vw,34px) }
-  .btn{ padding:10px 14px }
+/* ================================
+   Utilities / responsive
+================================== */
+.hidden{display:none !important}
+
+@media (max-height:700px){ /* comfy on short screens */
+  .hero{min-height:92vh}
+}
+
+/* Optional reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .btn, .card{transition:none}
 }
