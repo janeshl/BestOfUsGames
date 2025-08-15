@@ -1,7 +1,9 @@
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#0b0f14;color:#e8eef6}
+/* Previous, simpler styling (dark) + keep animated result styles */
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#0b0f14;color:#e8eef6}
 .container{max-width:960px;margin:0 auto;padding:24px}
 .section-title{font-size:22px;margin:0 0 14px;color:#cfe3ff}
-.card{background:#0f1520;border:1px solid #1f2a3a;border-radius:14px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.card{background:#0f1520;border:1px solid #1f2a3a;border-radius:14px;padding:16px}
 .list{display:flex;flex-direction:column;gap:8px}
 .option{border:1px solid #2a3b55;padding:10px;border-radius:10px;transition:all .15s ease}
 .option:hover{transform:translateY(-1px);border-color:#5e8bff}
@@ -15,7 +17,7 @@ input,select{background:#0c1320;border:1px solid #22314a;color:#e0ecff;border-ra
 .pill{background:#0d1e33;border:1px solid #234062;color:#9ec4ff;border-radius:999px;padding:8px 12px}
 .hidden{display:none}
 
-/* Animated result styles */
+/* Animated result styles (kept) */
 .result-box{position:relative;overflow:hidden;border-style:solid;border-width:1px}
 .reveal{animation:fadeUp .6s ease forwards, glowPulse 1.8s ease-in-out 2}
 .result-box.win{border-color:#3ad29f; box-shadow:0 0 0 1px rgba(58,210,159,.25), 0 10px 40px rgba(58,210,159,.18)}
@@ -39,9 +41,3 @@ input,select{background:#0c1320;border:1px solid #22314a;color:#e0ecff;border-ra
   0% { transform: translateY(-20vh) rotate(0deg); opacity:1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity:.8; }
 }
-
-
-/* Simple grids for forms */
-.grid-2{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
-textarea{ background:#0c1320; border:1px solid #22314a; color:#e0ecff; border-radius:10px; padding:10px; min-height:120px; resize:vertical }
-label.small{font-size:12px;color:#9ab8e8;margin-bottom:4px;display:block}
