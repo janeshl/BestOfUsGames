@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Predict the Future</title>
+<link rel="stylesheet" href="styling.css"/></head>
+<body class="container">
+<h2 class="section-title">🔮 Predict the Future</h2>
+<article class="card">
+  <form id="f-form" class="game-form" autocomplete="off">
+    <div class="grid-2">
+      <div>
+        <label class="small">Name</label>
+        <input name="name" placeholder="Your name" required autocomplete="off"/>
+      </div>
+      <div>
+        <label class="small">Birth Month</label>
+        <select name="birthMonth" required>
+          <option value="" disabled selected>Select</option>
+          <option>January</option><option>February</option><option>March</option><option>April</option>
+          <option>May</option><option>June</option><option>July</option><option>August</option>
+          <option>September</option><option>October</option><option>November</option><option>December</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="small">Favorite Place</label>
+        <input name="place" placeholder="e.g., Goa beach, Himalayas" required autocomplete="off"/>
+      </div>
+    </div>
+    <div style="margin-top:10px">
+      <button class="btn" type="submit"><span>Reveal my (fun) future</span></button>
+    </div>
+  </form>
+  <pre id="f-out" class="result" style="margin-top:12px; display:none;"></pre>
+</article>
+<div style="margin-top:24px"><a class="back" href="./games.html">← Back</a></div>
+<script src="script.js"></script>
+</body></html>
