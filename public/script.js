@@ -1,25 +1,34 @@
-function $(s){return document.querySelector(s)}function $all(s){return Array.from(document.querySelectorAll(s))}function setText(e,t){if(e)e.textContent=t}function html(e,m){if(e)e.innerHTML=m}
+// Helpers
+function $(s){return document.querySelector(s)}
+function setText(e,t){if(e)e.textContent=t}
+function html(e,m){if(e)e.innerHTML=m}
 
-// Predict the Future
-(function(){
-  const form = $('#f-form');
-  const out = $('#f-out');
-  if(!form || !out) return;
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    setText(out, "🔮 Summoning prophecies...");
-    const data = { name: form.name.value, birthMonth: form.birthMonth.value, favoritePlace: form.place.value };
-    try{
-      const res = await fetch('/api/predict-future', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-      const json = await res.json();
-      setText(out, json.ok ? json.content : ('Error: ' + (json.error || 'Unknown error')));
-      form.name.value=''; form.birthMonth.selectedIndex=0; form.place.value='';
-    }catch{ setText(out, 'Network error. Please try again.'); }
-  });
-})();
+function spawnConfetti(count=40){
+  const colors=['#ffd166','#06d6a0','#ef476f','#118ab2','#f6ae2d','#a3f7bf'];
+  const c=document.createElement('div'); c.className='confetti'; document.body.appendChild(c);
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div'); p.className='confetti-piece';
+    p.style.left=Math.random()*100+'vw';
+    p.style.background=colors[(Math.random()*colors.length)|0];
+    p.style.animationDuration=(1.8+Math.random()*1.4)+'s';
+    p.style.animationDelay=(Math.random()*0.2)+'s';
+    p.style.transform=`translateY(-10vh) rotate(${Math.random()*360}deg)`;
+    c.appendChild(p);
+  }
+  setTimeout(()=>{ c.remove(); }, 2600);
+}
 
-// 5-Round Quiz
-// 5-Round Quiz with 20s per-question timer (auto-mark wrong on timeout)
+function showAnimatedResult(el, text, variant='info'){
+  if(!el) return;
+  el.style.display='block';
+  el.className = 'result result-box ' + variant + ' reveal';
+  el.textContent = text;
+  if(variant === 'win') spawnConfetti(60);
+}
+
+/* =====================
+   Game 2: Hard Quiz with 20s timer and no repeats server-side
+===================== */
 (function(){
   const startForm = document.querySelector('#quiz-start');
   if(!startForm) return;
@@ -33,13 +42,11 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   const nextEl = document.querySelector('#quiz-next');
 
   let token = null;
-  let lock = false;           // prevents double answers
-  let tHandle = null;         // interval handle
-  let timeLeft = 20;          // seconds per question
+  let lock = false;
+  let tHandle = null;
+  let timeLeft = 20;
 
-  function clearTimer(){
-    if(tHandle){ clearInterval(tHandle); tHandle = null; }
-  }
+  function clearTimer(){ if(tHandle){ clearInterval(tHandle); tHandle=null; } }
   function startTimer(onExpire){
     clearTimer();
     timeLeft = 20;
@@ -47,260 +54,124 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
     tHandle = setInterval(()=>{
       timeLeft -= 1;
       timerEl.textContent = `⏱ ${timeLeft}s`;
-      if(timeLeft <= 0){
-        clearTimer();
-        if(!lock) onExpire(); // auto-mark wrong
-      }
-    }, 1000);
+      if(timeLeft <= 0){ clearTimer(); if(!lock) onExpire(); }
+    },1000);
   }
 
   async function submitAnswer(choiceIndex, clickedEl){
     if(lock) return; lock = true;
-    // stop inputs
-    Array.from(optsEl.children).forEach(n => n.style.pointerEvents='none');
+    Array.from(optsEl.children).forEach(n=>n.style.pointerEvents='none');
     clearTimer();
-
     try{
-      const res  = await fetch('/api/quiz/answer', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ token, choice: choiceIndex })
-      });
+      const res = await fetch('/api/quiz/answer', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token, choice: choiceIndex }) });
       const json = await res.json();
-      if(!json.ok){
-        nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>';
-        lock = false; return;
-      }
-
-      // show correctness styling if we had a clicked option
+      if(!json.ok){ nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>'; lock=false; return; }
       if(clickedEl){
         clickedEl.style.borderColor = json.correct ? 'rgba(51,200,120,.8)' : 'rgba(255,80,80,.8)';
       } else {
-        // timeout path: lightly indicate timeout
         nextEl.innerHTML = '<div class="pill">⏳ Time up — counted as wrong.</div>';
       }
-
-      if(json.explanation){
-        explEl.textContent = json.explanation;
-        explEl.style.display = 'block';
-      } else {
-        explEl.style.display = 'none';
-      }
-
+      if(json.explanation){ explEl.textContent = json.explanation; explEl.style.display='block'; } else { explEl.style.display='none'; }
       if(json.done){
-        nextEl.innerHTML = '<div class="pill">🏁 Finished! Score: '+json.score+' / '+json.total+'</div>';
-        return; // end
+        showAnimatedResult(nextEl, '🏁 Finished! Score: '+json.score+' / '+json.total, json.score >= 4 ? 'win' : 'lose');
+        return;
       }
-
-      // prepare Next button (immediate move or click-to-advance)
-      nextEl.innerHTML = '';
-      const b = document.createElement('button');
-      b.className = 'btn'; b.textContent = 'Next';
-      b.onclick = (e) => {
-        e.preventDefault();
-        renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options);
-      };
+      nextEl.innerHTML='';
+      const b = document.createElement('button'); b.className='btn'; b.textContent='Next';
+      b.onclick = (e)=>{ e.preventDefault(); renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options); };
       nextEl.appendChild(b);
-
-      lock = false;
-    }catch{
-      nextEl.innerHTML = '<div class="pill">Network error. Please try again.</div>';
-      lock = false;
-    }
+      lock=false;
+    }catch{ nextEl.innerHTML='<div class="pill">Network error.</div>'; lock=false; }
   }
 
   function renderQuestion(idx, total, question, options){
-    area.style.display = 'block';
+    area.style.display='block';
     status.textContent = 'Question ' + idx + ' of ' + total;
     qEl.textContent = question || '';
-    optsEl.innerHTML = '';
-    explEl.style.display = 'none';
-    explEl.textContent = '';
-    nextEl.innerHTML = '';
-    lock = false;
-
-    // Build options
-    (options || []).forEach((opt, i) => {
-      const d = document.createElement('div');
-      d.className = 'option';
-      d.textContent = (i+1) + '. ' + opt;
-      d.onclick = () => submitAnswer(i+1, d);  // user click path
-      optsEl.appendChild(d);
+    optsEl.innerHTML = ''; explEl.style.display='none'; explEl.textContent=''; nextEl.innerHTML=''; lock=false;
+    (options||[]).forEach((opt,i)=>{
+      const d = document.createElement('div'); d.className='option'; d.textContent=(i+1)+'. '+opt;
+      d.onclick = ()=>submitAnswer(i+1,d); optsEl.appendChild(d);
     });
-
-    // Start the 20s timer; on expire, submit choice 0 (always wrong)
-    startTimer(() => submitAnswer(0, null));
+    startTimer(()=>submitAnswer(0,null)); // timeout path: choice 0 is always wrong
   }
 
-  // Start quiz
   startForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const topic = e.target.topic.value;
-    e.target.topic.value = '';
+    const topic = e.target.topic.value.trim();
+    e.target.topic.value='';
     optsEl.innerHTML = '<div class="pill">Preparing quiz...</div>';
     try{
-      const res  = await fetch('/api/quiz/start', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ topic })
-      });
+      const res = await fetch('/api/quiz/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ topic }) });
       const json = await res.json();
       if(!json.ok){ optsEl.innerHTML = 'Error: ' + (json.error || 'Unknown error'); return; }
       token = json.token;
       renderQuestion(json.idx, json.total, json.question, json.options);
-    }catch{
-      optsEl.innerHTML = 'Network error. Please try again.';
-    }
+    }catch{ optsEl.innerHTML='Network error.'; }
   });
 })();
 
-// Find the Character (conversational)
+/* =====================
+   Game 3: Guess the Character (10 rounds, hints after 8)
+===================== */
 (function(){
   const startForm = $('#start-form');
   const turnForm = $('#turn-form');
   const chat = $('#chat');
   const rounds = $('#rounds');
   const result = $('#result');
-  const answerBox = $('#answer-box');
   if(!startForm || !chat) return;
   let sessionId = null, roundsLeft = 10;
 
   function pushMsg(who, text){
     const d = document.createElement('div'); d.className='msg';
     d.innerHTML = '<b>'+who+':</b> '+text;
-    chat.appendChild(d);
-    chat.scrollTop = chat.scrollHeight;
+    chat.appendChild(d); chat.scrollTop = chat.scrollHeight;
   }
 
   startForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    html(chat, '<div class="pill">Picking a secret character...</div>');
-    const topic = e.target.topic.value;
-    e.target.topic.value='';
+    html(chat, '<div class="pill">Picking a challenging secret character...</div>');
+    const topic = e.target.topic.value; e.target.topic.value='';
     try{
       const res = await fetch('/api/character/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ topic }) });
       const json = await res.json();
       if(!json.ok){ html(chat, 'Error: ' + (json.error || 'Unknown error')); return; }
-      sessionId = json.sessionId;
-      roundsLeft = 10;
-      $('#game').style.display = 'block';
-      html(chat, '');
-      pushMsg('AI', json.message || 'Ask your first yes/no question!');
-      setText(rounds, 'Rounds left: ' + roundsLeft);
-    }catch{ html(chat, 'Network error. Please try again.'); }
+      sessionId = json.sessionId; roundsLeft = 10; $('#game').style.display = 'block';
+      html(chat, ''); pushMsg('AI', json.message || 'Ask your first question!'); setText(rounds, 'Rounds left: ' + roundsLeft);
+      if(result) result.innerHTML = ''; result.style.display='none';
+    }catch{ html(chat, 'Network error.'); }
   });
 
   if(turnForm){
     turnForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       if(!sessionId) return;
-      const line = $('#userline').value.trim();
-      if(!line) return;
-      pushMsg('You', line);
-      $('#userline').value='';
+      const line = $('#userline').value.trim(); if(!line) return;
+      pushMsg('You', line); $('#userline').value='';
       try{
         const res = await fetch('/api/character/turn', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, text: line }) });
         const json = await res.json();
         if(!json.ok){ pushMsg('AI', 'Error: ' + (json.error || 'Unknown error')); return; }
-        if(json.answer){ pushMsg('AI', json.answer); if(answerBox){ answerBox.textContent = json.answer; } }
+        if(json.answer){ pushMsg('AI', json.answer); }
         if(json.hint){ pushMsg('AI', '💡 Hint: ' + json.hint); }
         if(json.done){
-          if(json.win){ html(result, '<div class="pill">🎉 Correct! You found ' + json.name + '.</div>'); }
-          else { html(result, '<div class="pill">🕵️ Out of rounds. The character was ' + json.name + '.</div>'); }
+          const m = json.win ? `🎉 Correct! You found ${json.name}.` : `🕵️ Out of rounds. The character was ${json.name}.`;
+          showAnimatedResult(result, m, json.win ? 'win' : 'lose');
           sessionId = null; if(json.message) pushMsg('AI', json.message); return;
         }
         if(typeof json.roundsLeft === 'number'){ roundsLeft = json.roundsLeft; setText(rounds, 'Rounds left: ' + roundsLeft); }
-      }catch{ pushMsg('AI', 'Network error. Please try again.'); }
+      }catch{ pushMsg('AI', 'Network error.'); }
     });
   }
 })();
 
-// Find the Healthy-Diet (8 Qs; 4 + 4; then generate plan)
-(function(){
-  const card = document.getElementById('hd-card');
-  if(!card) return;
-
-  const loading = document.getElementById('hd-loading');
-  const r1 = document.getElementById('hd-round1');
-  const r2 = document.getElementById('hd-round2');
-  const actions = document.getElementById('hd-actions');
-  const out = document.getElementById('hd-output');
-
-  let token = null;
-  let questions = [];
-  const answers = new Array(8).fill("");
-
-  // helpers
-  const show = (el) => el && el.classList.remove('hidden');
-  const hide = (el) => el && el.classList.add('hidden');
-
-  async function start(){
-    try{
-      const res = await fetch('/api/healthy/start', { method:'POST' });
-      const json = await res.json();
-      if(!json.ok){ loading.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      token = json.token;
-      questions = json.questions || [];
-      // Fill round 1 labels
-      document.getElementById('hd-q1').textContent = questions[0] || 'Question 1';
-      document.getElementById('hd-q2').textContent = questions[1] || 'Question 2';
-      document.getElementById('hd-q3').textContent = questions[2] || 'Question 3';
-      document.getElementById('hd-q4').textContent = questions[3] || 'Question 4';
-      // Fill round 2 labels
-      document.getElementById('hd-q5').textContent = questions[4] || 'Question 5';
-      document.getElementById('hd-q6').textContent = questions[5] || 'Question 6';
-      document.getElementById('hd-q7').textContent = questions[6] || 'Question 7';
-      document.getElementById('hd-q8').textContent = questions[7] || 'Question 8';
-      // Show first round
-      hide(loading); show(r1);
-    }catch{
-      loading.textContent = 'Network error. Please try again.';
-    }
-  }
-
-  r1?.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const a1 = r1.a1.value.trim(), a2 = r1.a2.value.trim(), a3 = r1.a3.value.trim(), a4 = r1.a4.value.trim();
-    if(!a1 || !a2 || !a3 || !a4) return;
-    answers[0]=a1; answers[1]=a2; answers[2]=a3; answers[3]=a4;
-    r1.a1.value=''; r1.a2.value=''; r1.a3.value=''; r1.a4.value='';
-    hide(r1); show(r2);
-  });
-
-  r2?.addEventListener('submit', (e)=>{
-    e.preventDefault();
-    const a5 = r2.a5.value.trim(), a6 = r2.a6.value.trim(), a7 = r2.a7.value.trim(), a8 = r2.a8.value.trim();
-    if(!a5 || !a6 || !a7 || !a8) return;
-    answers[4]=a5; answers[5]=a6; answers[6]=a7; answers[7]=a8;
-    r2.a5.value=''; r2.a6.value=''; r2.a7.value=''; r2.a8.value='';
-    hide(r2); show(actions);
-    out.textContent = "Ready to generate a personalized diet plan based on your answers.";
-  });
-
-  document.getElementById('hd-generate')?.addEventListener('click', async ()=>{
-    if(!token) return;
-    out.textContent = "🥗 Generating your diet plan...";
-    try{
-      const res = await fetch('/api/healthy/plan', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ token, answers })
-      });
-      const json = await res.json();
-      out.textContent = json.ok ? (json.plan || "No content") : ('Error: ' + (json.error || 'Unknown error'));
-    }catch{
-      out.textContent = 'Network error. Please try again.';
-    }
-  });
-
-  start();
-})();
-
-// Future Price Prediction (10 yes/no -> AI price -> player's guess; hide AI price until after guess)
+/* =====================
+   Game 5: Future Price Prediction (hide AI price until guess)
+===================== */
 (function(){
   const card = document.getElementById('fpp-card');
   if(!card) return;
-
   const startForm = document.getElementById('fpp-start');
   const intro = document.getElementById('fpp-intro');
   const qaWrap = document.getElementById('fpp-qa');
@@ -315,218 +186,239 @@ function $(s){return document.querySelector(s)}function $all(s){return Array.fro
   const submitGuess = document.getElementById('fpp-submit-guess');
   const out = document.getElementById('fpp-out');
 
-  let token = null;
-  let product = null;
-  let currency = null;
-  let currentPrice = null;
-  let questions = [];
-  let ix = 0;
+  let token = null, product=null, currency=null, currentPrice=null, questions=[], ix=0;
   const answers = new Array(10).fill(false);
+  const show = (el)=>el&&el.classList.remove('hidden'); const hide=(el)=>el&&el.classList.add('hidden');
 
-  function show(el){ if(el) el.classList.remove('hidden'); }
-  function hide(el){ if(el) el.classList.add('hidden'); }
-
-  function renderQuestion(){
-    status.textContent = `Question ${ix+1} of 10`;
-    qEl.textContent = questions[ix] || '';
-  }
+  function renderQuestion(){ status.textContent = `Question ${ix+1} of 10`; qEl.textContent = questions[ix] || ''; }
 
   startForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    out.textContent = '';
-    const category = startForm.category.value.trim();
+    e.preventDefault(); out.style.display='none'; out.textContent=''; const category = startForm.category.value.trim();
     try{
-      const res = await fetch('/api/fpp/start', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ category: category || undefined })
-      });
+      const res = await fetch('/api/fpp/start',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ category: category || undefined })});
       const json = await res.json();
-      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-      token = json.token;
-      product = json.product;
-      currency = json.currency;
-      currentPrice = json.currentPrice;
-      questions = json.questions || [];
+      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
+      token=json.token; product=json.product; currency=json.currency; currentPrice=json.currentPrice; questions=json.questions||[];
+      intro.style.display='block'; intro.textContent=`Product: ${product} — Current Price: ${currency} ${currentPrice}`;
+      ix=0; show(qaWrap); hide(actions); hide(guessWrap); renderQuestion();
+    }catch{ showAnimatedResult(out, 'Network error.', 'lose'); }
+  });
 
-      intro.style.display = 'block';
-      intro.textContent = `Product: ${product} — Current Price: ${currency} ${currentPrice}`;
+  function answer(val){ answers[ix]=!!val; ix+=1; if(ix<10){ renderQuestion(); }else{ hide(qaWrap); show(actions);} }
+  yesBtn?.addEventListener('click', ()=>answer(true)); noBtn?.addEventListener('click', ()=>answer(false));
 
-      // Start Q&A
-      ix = 0;
-      show(qaWrap);
-      hide(actions);
-      hide(guessWrap);
-      renderQuestion();
+  genBtn?.addEventListener('click', async ()=>{
+    if(!token) return; showAnimatedResult(out, '💹 Preparing the 5-year scenario...', 'info');
+    try{
+      const res = await fetch('/api/fpp/answers',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ token, answers })});
+      const json = await res.json();
+      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
+      showAnimatedResult(out, `All set. Now enter your 5-year price guess for ${product}.`, 'info'); 
+      show(guessWrap);
+    }catch{ showAnimatedResult(out, 'Network error.', 'lose'); }
+  });
+
+  submitGuess?.addEventListener('click', async ()=>{
+    if(!token) return; const g = Number(guessInput.value); if(!isFinite(g)){ showAnimatedResult(out, 'Please enter a numeric guess.', 'lose'); return; }
+    showAnimatedResult(out, '🔢 Checking your guess...', 'info');
+    try{
+      const res = await fetch('/api/fpp/guess',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ token, guess: g })});
+      const json = await res.json();
+      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
+      const text = (json.win
+        ? `🎉 Great guess! You matched within 60%.\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+        : `❌ Not quite. Better luck next time!\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
+      );
+      showAnimatedResult(out, text, json.win ? 'win' : 'lose');
+      guessInput.value='';
+    }catch{ showAnimatedResult(out, 'Network error.', 'lose'); }
+  });
+})();
+
+/* =====================
+   Game 6: Budget Glam Builder — animated scoring
+===================== */
+(function(){
+  const card = document.getElementById('glam-card');
+  if(!card) return;
+
+  const startForm = document.getElementById('glam-start');
+  const hud = document.getElementById('glam-hud');
+  const timerEl = document.getElementById('glam-timer');
+  const budgetEl = document.getElementById('glam-budget');
+  const spendEl = document.getElementById('glam-spend');
+  const countEl = document.getElementById('glam-count');
+  const pageEl = document.getElementById('glam-page');
+  const listEl = document.getElementById('glam-list');
+  const pager = document.getElementById('glam-pager');
+  const prevBtn = document.getElementById('glam-prev');
+  const nextBtn = document.getElementById('glam-next');
+  const actions = document.getElementById('glam-actions');
+  const finishBtn = document.getElementById('glam-finish');
+  const out = document.getElementById('glam-out');
+
+  let token = null, budget = 0, items = [], selected = new Set();
+  let secsLeft = 180, timer = null, startedAt = 0, finished = false;
+  const pageSize = 10; let page = 0; const minPick = 12;
+
+  function show(el){ el && el.classList.remove('hidden'); }
+  function hide(el){ el && el.classList.add('hidden'); }
+  function spendTotal(){ return Array.from(selected).reduce((sum,i)=>sum + Number(items[i].price||0),0); }
+  function updateHUD(){ spendEl.textContent='Spend: ₹'+spendTotal(); countEl.textContent='Selected: '+selected.size+'/'+minPick; pageEl.textContent='Page: '+(page+1); }
+
+  function renderList(){
+    listEl.innerHTML='';
+    const start = page*pageSize, end = Math.min(items.length, start+pageSize);
+    for(let i=start;i<end;i++){
+      const it = items[i];
+      const row = document.createElement('label'); row.className='option'; row.style.display='grid'; row.style.gridTemplateColumns='24px 1fr auto'; row.style.alignItems='center'; row.style.gap='10px';
+      const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=selected.has(i);
+      cb.onchange = ()=>{
+        if(cb.checked) selected.add(i); else selected.delete(i);
+        if(spendTotal() > budget){ selected.delete(i); cb.checked=false; } // prevent overspend
+        updateHUD();
+      };
+      const text = document.createElement('div'); text.innerHTML = `<b>${it.name}</b><br><small>${it.category} • ${it.ecoFriendly ? '🌱 Eco' : '—'}</small><br>${it.description}`;
+      const price = document.createElement('div'); price.textContent='₹'+it.price;
+      row.appendChild(cb); row.appendChild(text); row.appendChild(price); listEl.appendChild(row);
+    }
+    prevBtn.disabled = page === 0; nextBtn.disabled = (page+1)*pageSize >= items.length;
+    updateHUD();
+  }
+
+  function tick(){ secsLeft -= 1; if(secsLeft < 0){ finish(true); return; } timerEl.textContent = 'Time: '+secsLeft+'s'; }
+  function finish(auto=false){
+    if(finished) return; finished=true; clearInterval(timer);
+    const timeTaken = Math.min(999, Math.round((Date.now()-startedAt)/1000));
+    const selectedIndices = Array.from(selected);
+    showAnimatedResult(out, 'Scoring your kit...', 'info');
+    fetch('/api/glam/score',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ token, selectedIndices, timeTaken })}).then(r=>r.json()).then(json=>{
+      if(!json.ok){ showAnimatedResult(out,'Error: '+(json.error||'Unknown error'),'lose'); return; }
+      const details = [
+        `Score: ${json.score}/100`,
+        `Budget: ₹${json.budgetInr} • Spend: ₹${json.totalSpend} • Time: ${json.timeTaken}s`,
+        '',
+        '✅ Positives:', ...(json.positives||[]).map(p=>'• '+p),
+        '', '⚠️ Areas to improve:', ...(json.negatives||[]).map(n=>'• '+n),
+        '', json.summary || ''
+      ].join('\n');
+      showAnimatedResult(out, (json.win?'🎉 You win!\n\n':'❌ Not this time.\n\n') + details, json.win?'win':'lose');
+      hide(actions); hide(pager);
+      listEl.querySelectorAll('input[type="checkbox"]').forEach(c=>c.disabled=true);
+    }).catch(()=> showAnimatedResult(out,'Network error.','lose'));
+  }
+
+  startForm.addEventListener('submit', async (e)=>{
+    e.preventDefault(); out.style.display='none'; out.textContent=''; finished=false; selected.clear(); secsLeft=180; page=0;
+    const gender = startForm.gender.value; const budgetInr = Math.max(10000, Number(startForm.budget.value));
+    try{
+      const res = await fetch('/api/glam/start',{method:'POST',headers:{'Content-Type':'application/json'},body: JSON.stringify({ gender, budgetInr })});
+      const json = await res.json();
+      if(!json.ok){ showAnimatedResult(out,'Error: '+(json.error||'Unknown error'),'lose'); return; }
+      token = json.token; budget = json.budgetInr; items = json.items || [];
+      budgetEl.textContent='Budget: ₹'+budget; show(hud); show(listEl); show(actions); show(pager);
+      showAnimatedResult(out, `Pick at least ${minPick} products within budget before the timer ends!`, 'info');
+      clearInterval(timer); secsLeft = 180; timerEl.textContent='Time: '+secsLeft+'s'; startedAt=Date.now(); timer=setInterval(tick,1000);
+      renderList();
+    }catch{ showAnimatedResult(out,'Network error.','lose'); }
+  });
+
+  prevBtn.addEventListener('click', ()=>{ if(page>0){ page-=1; renderList(); } });
+  nextBtn.addEventListener('click', ()=>{ if((page+1)*pageSize < items.length){ page+=1; renderList(); } });
+  finishBtn.addEventListener('click', ()=>finish(false));
+})();
+
+/* =====================
+   Game 1: Predict the Future — animated result
+===================== */
+(function(){
+  const form = document.getElementById('f-form');
+  const out = document.getElementById('f-out');
+  if(!form || !out) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showAnimatedResult(out, '🔮 Summoning prophecies...', 'info');
+    const data = { name: form.name.value.trim(), birthMonth: form.birthMonth.value, favoritePlace: form.place.value.trim() };
+    try{
+      const res = await fetch('/api/predict-future', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const json = await res.json();
+      const text = json.ok ? json.content : ('Error: ' + (json.error || 'Unknown error'));
+      showAnimatedResult(out, text, json.ok ? 'info' : 'lose');
+      form.name.value=''; form.birthMonth.selectedIndex=0; form.place.value='';
     }catch{
-      out.textContent = 'Network error. Please try again.';
+      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
+    }
+  });
+})();
+
+/* =====================
+   Game 4: Find the Healthy-Diet — 2 rounds of 4 Qs, animated plan
+===================== */
+(function(){
+  const startForm = document.getElementById('h-start');
+  const wrap = document.getElementById('h-questions');
+  const roundLabel = document.getElementById('h-round-label');
+  const r1 = document.getElementById('h-round1');
+  const r2 = document.getElementById('h-round2');
+  const c1 = document.getElementById('h-controls1');
+  const c2 = document.getElementById('h-controls2');
+  const nextBtn = document.getElementById('h-next');
+  const prevBtn = document.getElementById('h-prev');
+  const genBtn = document.getElementById('h-generate');
+  const out = document.getElementById('h-out');
+  if(!startForm) return;
+
+  let token = null, questions = new Array(8).fill('');
+  const answers = new Array(8).fill('');
+
+  function makeInput(idx, q){
+    const div = document.createElement('div');
+    const label = document.createElement('label'); label.className='small'; label.textContent = `Q${idx+1}. ${q}`;
+    const input = document.createElement('input'); input.placeholder='Your answer';
+    input.value = answers[idx] || '';
+    input.oninput = (e)=>{ answers[idx] = e.target.value; };
+    div.appendChild(label); div.appendChild(input);
+    return div;
+  }
+
+  function renderRound1(){
+    roundLabel.textContent = 'Round 1 of 2';
+    r1.innerHTML=''; r2.classList.add('hidden'); c2.classList.add('hidden'); r1.classList.remove('hidden'); c1.classList.remove('hidden');
+    for(let i=0;i<4;i++){ r1.appendChild(makeInput(i, questions[i])); }
+  }
+  function renderRound2(){
+    roundLabel.textContent = 'Round 2 of 2';
+    r2.innerHTML=''; r1.classList.add('hidden'); c1.classList.add('hidden'); r2.classList.remove('hidden'); c2.classList.remove('hidden');
+    for(let i=4;i<8;i++){ r2.appendChild(makeInput(i, questions[i])); }
+  }
+
+  startForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showAnimatedResult(out, '🩺 Loading your question set...', 'info');
+    try{
+      const res = await fetch('/api/healthy/start', { method:'POST' });
+      const json = await res.json();
+      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
+      token = json.token; questions = (json.questions || questions).slice(0,8);
+      wrap.classList.remove('hidden'); renderRound1(); showAnimatedResult(out, 'Answer the first 4 questions, then click Next.', 'info');
+    }catch{
+      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
     }
   });
 
-  function answer(val){
-    answers[ix] = !!val;
-    ix += 1;
-    if(ix < 10){
-      renderQuestion();
-    }else{
-      hide(qaWrap);
-      show(actions);
-    }
-  }
-
-  yesBtn?.addEventListener('click', ()=>answer(true));
-  noBtn?.addEventListener('click',  ()=>answer(false));
-
-  // After generating the AI price, DO NOT show it yet — prompt for guess
+  nextBtn?.addEventListener('click', ()=>{ renderRound2(); });
+  prevBtn?.addEventListener('click', ()=>{ renderRound1(); });
   genBtn?.addEventListener('click', async ()=>{
     if(!token) return;
-    out.textContent = '💹 Preparing the 5-year scenario...';
+    showAnimatedResult(out, '🍽️ Generating your diet plan...', 'info');
     try{
-      const res = await fetch('/api/fpp/answers', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ token, answers })
-      });
+      const payload = { token, answers: answers.map(a=>String(a||'').trim()) };
+      const res = await fetch('/api/healthy/plan', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const json = await res.json();
-      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-
-      // Hide AI price & reasoning here — just prompt for guess now
-      out.textContent = `All set. Now enter your 5-year price guess for ${product}.`;
-      show(guessWrap);
+      if(!json.ok){ showAnimatedResult(out, 'Error: '+(json.error||'Unknown error'), 'lose'); return; }
+      showAnimatedResult(out, json.plan, 'info');
     }catch{
-      out.textContent = 'Network error. Please try again.';
-    }
-  });
-
-  // Reveal AI price ONLY after the player's guess, alongside result
-  submitGuess?.addEventListener('click', async ()=>{
-    if(!token) return;
-    const g = Number(guessInput.value);
-    if(!isFinite(g)){ out.textContent = 'Please enter a numeric guess.'; return; }
-    out.textContent = '🔢 Checking your guess...';
-    try{
-      const res = await fetch('/api/fpp/guess', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ token, guess: g })
-      });
-      const json = await res.json();
-      if(!json.ok){ out.textContent = 'Error: ' + (json.error || 'Unknown error'); return; }
-
-      // Now show both values & result
-      out.textContent =
-        (json.win
-          ? `🎉 Great guess! You matched within 60%.\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
-          : `❌ Not quite. Better luck next time!\n\nYour Guess: ${json.currency} ${json.playerGuess}\nAI Price:  ${json.currency} ${json.aiPrice}`
-        );
-
-      guessInput.value = '';
-    }catch{
-      out.textContent = 'Network error. Please try again.';
+      showAnimatedResult(out, 'Network error. Please try again.', 'lose');
     }
   });
 })();
-
-// Budget Glam Builder — 180s, 30 items, 10-per-page, min pick = 12
-// Glam Builder
-(function(){
-  const form = document.querySelector('#glam-start');
-  if(!form) return;
-
-  const gameDiv   = document.querySelector('#glam-game');
-  const budgetEl  = document.querySelector('#glam-budget');
-  const timerEl   = document.querySelector('#glam-timer');
-  const productsEl= document.querySelector('#glam-products');
-  const resultEl  = document.querySelector('#glam-result');
-  const prevBtn   = document.querySelector('#glam-prev');
-  const nextBtn   = document.querySelector('#glam-next');
-  const finishBtn = document.querySelector('#glam-finish');
-
-  let sessionId = null;
-  let products = [];
-  let page = 0;
-  let selected = new Set();
-  let tHandle = null;
-  let timeLeft = 180;
-
-  function renderPage(){
-    productsEl.innerHTML = '';
-    const start = page*10, end = start+10;
-    products.slice(start,end).forEach((p,idx)=>{
-      const d = document.createElement('div');
-      d.className = 'option';
-      d.textContent = `${p.name} — ₹${p.price} (${p.desc})`;
-      d.style.cursor = 'pointer';
-      if(selected.has(start+idx)) d.style.background='rgba(80,200,120,.2)';
-      d.onclick = ()=>{
-        if(selected.has(start+idx)) selected.delete(start+idx);
-        else selected.add(start+idx);
-        renderPage();
-      };
-      productsEl.appendChild(d);
-    });
-    prevBtn.style.display = (page>0)?'inline-block':'none';
-    nextBtn.style.display = (end<products.length)?'inline-block':'none';
-  }
-
-  function clearTimer(){ if(tHandle) clearInterval(tHandle); tHandle=null; }
-  function startTimer(){
-    clearTimer();
-    timerEl.textContent = `⏱ ${timeLeft}s`;
-    tHandle = setInterval(()=>{
-      timeLeft -= 1;
-      timerEl.textContent = `⏱ ${timeLeft}s`;
-      if(timeLeft <= 0){ clearTimer(); finishGame(); }
-    },1000);
-  }
-
-  async function finishGame(){
-    clearTimer();
-    try{
-      const res = await fetch('/api/glam/finish',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ sessionId, picks: Array.from(selected) })
-      });
-      const json = await res.json();
-      if(json.ok){
-        resultEl.style.display='block';
-        if(json.win){
-          resultEl.textContent = `🎉 Congrats! Score: ${json.score}/100\n\nHighlights:\n${json.points}`;
-        } else {
-          resultEl.textContent = `❌ Failed. Score: ${json.score}/100\n\nReasons:\n${json.points}`;
-        }
-      } else {
-        resultEl.style.display='block';
-        resultEl.textContent = 'Error: '+json.error;
-      }
-    }catch{ resultEl.textContent='Network error.'; }
-  }
-
-  prevBtn.onclick=()=>{ if(page>0){ page--; renderPage(); } };
-  nextBtn.onclick=()=>{ if((page+1)*10<products.length){ page++; renderPage(); } };
-  finishBtn.onclick=(e)=>{ e.preventDefault(); finishGame(); };
-
-  form.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const gender=form.gender.value;
-    const budget=Number(form.budget.value);
-    productsEl.innerHTML='Loading...';
-    try{
-      const res=await fetch('/api/glam/start',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({gender,budget})
-      });
-      const json=await res.json();
-      if(!json.ok){ productsEl.innerHTML='Error: '+json.error; return; }
-      sessionId=json.sessionId;
-      products=json.products;
-      budgetEl.textContent=`Budget: ₹${budget}`;
-      gameDiv.style.display='block';
-      page=0; selected.clear(); timeLeft=180;
-      renderPage(); startTimer();
-    }catch{ productsEl.innerHTML='Network error'; }
-  });
-})();
-
-
-
