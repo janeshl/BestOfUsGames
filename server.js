@@ -314,7 +314,6 @@ async function generateHardQuiz(topic) {
       }
     }
   }
-  // Ensure we have 5; fill with placeholders if short
   while (questions.length < 5) {
     const i = questions.length + 1;
     questions.push({
@@ -324,7 +323,6 @@ async function generateHardQuiz(topic) {
       explanation: "Placeholder due to generation limits."
     });
   }
-  // record last 50 questions for this topic
   const saved = Array.from(avoidSet).slice(-50);
   recentQuizByTopic.set(topic, saved);
   return questions;
@@ -335,23 +333,9 @@ app.post("/api/quiz/start", async (req, res) => {
     const { topic } = req.body ?? {};
     const questions = await generateHardQuiz(topic || "General Knowledge");
     const token = "QZ" + Math.random().toString(36).slice(2, 10).toUpperCase();
-    sessions.set(token, {
-      type: "quiz",
-      topic,
-      idx: 0,
-      score: 0,
-      questions,
-      createdAt: Date.now(),
-    });
+    sessions.set(token, { type: "quiz", topic, idx: 0, score: 0, questions, createdAt: Date.now() });
     const q = questions[0];
-    res.json({
-      ok: true,
-      token,
-      idx: 1,
-      total: 5,
-      question: q.question,
-      options: q.options,
-    });
+    res.json({ ok: true, token, idx: 1, total: 5, question: q.question, options: q.options });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -361,8 +345,7 @@ app.post("/api/quiz/answer", (req, res) => {
   try {
     const { token, choice } = req.body ?? {};
     const s = sessions.get(token);
-    if (!s || s.type !== "quiz")
-      return res.status(400).json({ ok: false, error: "Session not found/expired." });
+    if (!s || s.type !== "quiz") return res.status(400).json({ ok: false, error: "Session not found/expired." });
     const q = s.questions[s.idx];
     const correct = Number(choice) === Number(q.answerIndex);
     if (correct) s.score += 1;
@@ -374,7 +357,7 @@ app.post("/api/quiz/answer", (req, res) => {
       return res.json({ ok: true, done: true, correct, explanation, score: s.score, total: 5 });
     }
     const next = s.questions[s.idx];
-    res.json({ ok: true, done: false, correct, explanation, next: { idx: s.idx + 1, total: 5, question: next.question, options: next.options } });
+    res.json({ ok: true, done: false, correct, explanation, next: { idx: s.idx+1, total: 5, question: next.question, options: next.options } });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -382,8 +365,6 @@ app.post("/api/quiz/answer", (req, res) => {
 
 /* =================================
    Game 3: Guess the Character (HARD)
-   - 10 rounds
-   - Provide different hints from round 8 onwards
 ================================= */
 const ROUNDS_MAX = 10;
 
@@ -391,7 +372,7 @@ app.post("/api/character/start", async (req, res) => {
   try {
     const { topic } = req.body ?? {};
     const chooseMessages = PROMPTS.characterCandidatesHard(topic);
-    let candidates = ["Ada Lovelace", "Gandalf", "Frida Kahlo", "Mahatma Gandhi", "Marie Curie", "Katniss Everdeen", "Nikola Tesla"];
+    let candidates = ["Ada Lovelace","Gandalf","Frida Kahlo","Mahatma Gandhi","Marie Curie","Katniss Everdeen","Nikola Tesla"];
     try {
       const raw = await chatCompletion(chooseMessages, 0.6, 160);
       const parsed = JSON.parse(raw);
@@ -402,7 +383,7 @@ app.post("/api/character/start", async (req, res) => {
     recentByTopic.set(topic, [name, ...rec].slice(0,7));
     const id = makeId();
     sessions.set(id, { type: "character", topic, name, rounds: 0, history: [], lastHint: "", createdAt: Date.now() });
-    res.json({ ok: true, sessionId: id, message: `Guess the character! You have ${ROUNDS_MAX} rounds. Ask strategic yes/no questions. Hints begin after round 8.` });
+    res.json({ ok: true, sessionId: id, message: `Guess the character! You have ${ROUNDS_MAX} rounds. Hints begin after round 8.` });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -419,7 +400,6 @@ app.post("/api/character/turn", async (req, res) => {
     let parsed = { answer: "Okay.", isGuess: false, guessedName: "", hint: "" };
     try { const raw = await chatCompletion(messages, 0.4, 220); parsed = JSON.parse(raw); } catch {}
 
-    // enforce hint policy server-side
     let hintOut = "";
     if (currentRound >= 8 && parsed.hint && parsed.hint.trim()) {
       const h = parsed.hint.trim();
@@ -432,7 +412,6 @@ app.post("/api/character/turn", async (req, res) => {
     s.rounds += 1;
     s.history.push({ q: text || "", a: parsed.answer || "" });
 
-    // Guess check
     if (parsed.isGuess && parsed.guessedName) {
       const correct = parsed.guessedName.trim().toLowerCase() === s.name.trim().toLowerCase();
       if (correct) {
@@ -497,8 +476,7 @@ app.post("/api/healthy/plan", async (req, res) => {
 });
 
 /* =================================
-   Game 5: Future Price Prediction (robust)
-   - hide AI price until guess
+   Game 5: Future Price Prediction
 ================================= */
 app.post("/api/fpp/start", async (req, res) => {
   try {
@@ -558,7 +536,7 @@ app.post("/api/fpp/answers", async (req, res) => {
     } catch {}
     s.predictedPrice = Number(predicted.predictedPrice);
     s.explanation = predicted.explanation || "";
-    res.json({ ok: true }); // keep price hidden
+    res.json({ ok: true });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -579,15 +557,12 @@ app.post("/api/fpp/guess", (req, res) => {
 
 /* =================================
    Game 6: Budget Glam Builder
-   - Start: min budget ₹10,000, 30 items
-   - Score: min selection 12, timer measured client-side
 ================================= */
 app.post("/api/glam/start", async (req, res) => {
   try {
     const { gender = "Unisex", budgetInr } = req.body ?? {};
     const budget = Math.max(10000, Number(budgetInr) || 15000);
 
-    // Fallback list (30 items)
     let items = Array.from({ length: 30 }).map((_, i) => ({
       name: `Starter Item ${i + 1}`,
       price: Math.floor(250 + Math.random() * 1500),
@@ -657,5 +632,4 @@ app.post("/api/glam/score", async (req, res) => {
    Healthcheck
 ================================= */
 app.get("/healthz", (_req, res) => res.json({ ok: true }));
-
 app.listen(PORT, () => console.log(`✅ Server running at http://localhost:${PORT}`));
