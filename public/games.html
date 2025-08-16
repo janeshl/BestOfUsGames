@@ -1,25 +1,55 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>All Games</title>
-  <link rel="stylesheet" href="styling.css" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Games • AI Games Hub</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
-<body>
-<section class="section container">
-  <h2 class="section-title">Games</h2>
-  <div class="cards">
-    <article class="card"><h3 class="card-title">Predict the Future</h3><p class="card-copy">Enter your name, birth month & favorite place → funny prediction.</p><a class="btn" href="./future.html"><span>Play</span></a></article>
-    <article class="card"><h3 class="card-title">Quiz Challenge</h3><p class="card-copy">Pick a topic → 10 tough questions with timer.</p><a class="btn" href="./quiz.html"><span>Play</span></a></article>
-    <article class="card"><h3 class="card-title">Guess the Character</h3><p class="card-copy">AI holds a character. You ask. It answers.</p><a class="btn" href="./character.html"><span>Play</span></a></article>
-    <article class="card"><h3 class="card-title">Healthy Diet Finder</h3><p class="card-copy">Answer 8 quick questions, get a personalized diet plan.</p><a class="btn" href="./healthy.html"><span>Play</span></a></article>
-    <article class="card"><h3 class="card-title">Future Price Prediction</h3><p class="card-copy">Answer scenarios, guess 5-year price → win if 60% close.</p><a class="btn" href="./price.html"><span>Play</span></a></article>
-    <article class="card"><h3 class="card-title">Budget Glam Builder</h3><p class="card-copy">Pick 12+ beauty items under budget in 180s → scored out of 100.</p><a class="btn" href="./glam.html"><span>Play</span></a></article>
+<body data-page="games">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> AI Games Hub</div>
+      <a class="backlink" href="index.html">← Back</a>
+    </div>
   </div>
-  <div style="margin-top:24px;display:flex;justify-content:flex-start;">
-    <a href="./index.html" class="back">← Back</a>
+  <div class="container">
+    <h1 class="h1" style="font-size:40px;margin:10px 0 6px 0;">Games</h1>
+    <div class="grid">
+      <div class="card">
+        <h3>Predict the Future</h3>
+        <p>Enter your name, birth month, favorite place & hobby → get 3 funny predictions.</p>
+        <a class="btn" href="predict.html">PLAY</a>
+      </div>
+      <div class="card">
+        <h3>Quiz Challenge</h3>
+        <p>Pick a topic → 5 tough questions with 20s timer.</p>
+        <a class="btn" href="quiz.html">PLAY</a>
+      </div>
+      <div class="card">
+        <h3>Guess the Character</h3>
+        <p>AI holds a character. You ask or guess within 10 rounds → hints on 8–10.</p>
+        <a class="btn" href="guess.html">PLAY</a>
+      </div>
+      <div class="card">
+        <h3>Healthy Diet Finder</h3>
+        <p>Answer 10 quick questions + notes → get a personalized diet plan.</p>
+        <a class="btn" href="diet.html">PLAY</a>
+      </div>
+      <div class="card">
+        <h3>Future Price Prediction</h3>
+        <p>Answer scenarios then guess 5-year price → win if ≥75% close.</p>
+        <a class="btn" href="price.html">PLAY</a>
+      </div>
+      <div class="card">
+        <h3>Budget Glam Builder</h3>
+        <p>Pick 12+ beauty items under budget in 180s → scored out of 100.</p>
+        <a class="btn" href="glam.html">PLAY</a>
+      </div>
+    </div>
+    <footer>© Team Boots</footer>
   </div>
-</section>
+  <script src="script.js" type="module"></script>
 </body>
 </html>
