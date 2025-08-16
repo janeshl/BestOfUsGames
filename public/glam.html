@@ -1,44 +1,48 @@
-<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Budget Glam Builder</title>
-<link rel="stylesheet" href="styling.css"/></head>
-<body class="container">
-<h2 class="section-title">💄 Budget Glam Builder</h2>
-<article class="card" id="glam-card">
-  <form id="glam-start" class="game-form" autocomplete="off">
-    <div class="row">
-      <select name="gender" required>
-        <option value="Unisex" selected>Unisex</option>
-        <option>Female</option>
-        <option>Male</option>
-      </select>
-      <input name="budget" placeholder="Budget in INR (min 10000, e.g., 15000)" required inputmode="numeric" />
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Budget Glam Builder</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="glam">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> Budget Glam Builder</div>
+      <a class="backlink" href="games.html">← Back</a>
     </div>
-    <button class="btn" type="submit"><span>Start</span></button>
-  </form>
-
-  <div id="glam-hud" class="hidden" style="margin-top:10px">
-    <div class="badge" id="glam-timer">Time: 180s</div>
-    <div class="badge" id="glam-budget">Budget: ₹0</div>
-    <div class="badge" id="glam-spend">Spend: ₹0</div>
-    <div class="badge" id="glam-count">Selected: 0/12</div>
-    <div class="badge" id="glam-page">Page: 1</div>
   </div>
-
-  <div id="glam-list" class="list hidden" style="margin-top:10px"></div>
-
-  <div class="row hidden" id="glam-pager" style="margin-top:10px">
-    <button id="glam-prev" class="btn" type="button"><span>Prev</span></button>
-    <button id="glam-next" class="btn" type="button"><span>Next</span></button>
+  <div class="container">
+    
+<div class="card" id="glaSetup">
+  <div class="row">
+    <div><label>Gender</label><select id="glaGender"><option>Female</option><option>Male</option><option>Non-binary</option></select></div>
+    <div><label>Budget (₹)</label><input class="input" id="glaBudget" type="number" min="10000" value="12000"/></div>
+    <div style="align-self:flex-end;"><button class="btn" id="glaStart">Start (180s)</button></div>
   </div>
-
-  <div id="glam-actions" class="hidden" style="margin-top:12px">
-    <button id="glam-finish" class="btn" type="button"><span>Finish Now</span></button>
+  <div class="small" style="margin-top:8px;">Pick at least 12 items within budget.</div>
+</div>
+<div class="card" id="glaGame" style="display:none;">
+  <div class="flex">
+    <span class="badge">Time: <span id="glaTime">180</span>s</span>
+    <span class="badge">Selected: <span id="glaSel">0</span>/30</span>
+    <span class="badge">Chosen Items: <span id="glaCount">0</span></span>
+    <span class="badge">Total: ₹<span id="glaTotal">0</span> / Budget: ₹<span id="glaBVal">0</span></span>
   </div>
+  <div id="glaList" style="margin-top:12px;"></div>
+  <div class="row" style="margin-top:12px; justify-content:space-between;">
+    <button class="btn" id="glaPrev">← Prev</button>
+    <div><button class="btn" id="glaFinish">Finish</button> <button class="btn" id="glaNext">Next →</button></div>
+  </div>
+</div>
+<div class="card center" id="glaResult" style="display:none;">
+  <div id="glaR"></div>
+  <div class="emoji" id="glaEm"></div>
+  <div id="glaPoints" style="margin-top:12px;"></div>
+</div>
 
-  <pre id="glam-out" class="result" style="margin-top:12px; display:none;"></pre>
-</article>
-<div style="margin-top:24px"><a class="back" href="./games.html">← Back</a></div>
-<script src="script.js"></script>
-</body></html>
+  </div>
+  <script src="script.js" type="module"></script>
+</body>
+</html>
