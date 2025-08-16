@@ -1,21 +1,24 @@
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>AI Games Hub</title>
-  <link rel="stylesheet" href="styling.css" />
+  <link rel="stylesheet" href="styles.css"/>
 </head>
-<body>
-  <!-- Hero section with full-screen video background -->
-  <section class="hero">
-    <video class="hero-video" src="./videos/hero.mp4" autoplay muted loop playsinline poster="./images/ai-gear.jpg"></video>
-    <div class="hero-content">
-      <h1 class="eyebrow">AI Games Hub</h1>
-      <p class="lead">A collection of unique and quirky games to while away your day.</p>
-      <p class="lead">Powered By Team Boots.</p> 
-      <a href="./games.html" class="btn"><span>See More</span></a>
+<body data-page="home">
+  <div class="hero">
+    <video class="bg" autoplay muted loop playsinline>
+      <source src="Videos/hero.mp4" type="video/mp4"/>
+    </video>
+    <div class="overlay"></div>
+    <div class="hero-card">
+      <div class="h1">AI Games Hub</div>
+      <div class="subtitle">A collection of unique and quirky games to while away your day.<br/>Powered by Team Boots.</div>
+      <a class="btn" href="games.html">SEE MORE →</a>
     </div>
-  </section>
+  </div>
+  <script src="script.js" type="module"></script>
 </body>
 </html>
