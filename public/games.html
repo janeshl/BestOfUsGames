@@ -1,55 +1,55 @@
-
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-page="games">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Games</title>
-  <link rel="stylesheet" href="styles.css"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Games</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body data-page="games">
-  <div class="topbar">
+
+  <!-- Top Bar -->
+  <header class="topbar">
     <div class="container topbar-inner">
-      <div class="brand"><span class="dot"></span> AI Games Hub</div>
-      <a class="backlink" href="index.html">← Back</a>
+      <div class="brand">
+        <div class="dot"></div>
+        <span>AI Games</span>
+      </div>
+      <nav>
+        <a href="/">Home</a>
+      </nav>
     </div>
-  </div>
-  <div class="container">
-    <h1 class="h1" style="font-size:40px;margin:10px 0 6px 0;">Games</h1>
+  </header>
+
+  <!-- Main -->
+  <main class="container">
+    <h1 class="h1 page">Games</h1>
+    <p class="subtitle">Pick a game below and start playing ✨</p>
+
     <div class="grid">
-      <div class="card">
+      <!-- Game Card 1 -->
+      <a href="/game/fortune" class="card">
         <h3>Predict the Future</h3>
-        <p>Enter your name, birth month, favorite place & hobby → get 3 funny predictions.</p>
-        <a class="btn" href="predict.html">PLAY</a>
-      </div>
-      <div class="card">
-        <h3>Quiz Challenge</h3>
-        <p>Pick a topic → 5 round of questions.</p>
-        <a class="btn" href="quiz.html">PLAY</a>
-      </div>
-      <div class="card">
-        <h3>Guess the Character</h3>
-        <p>AI holds a character. You ask or guess within 10 rounds → hints on 8–10.</p>
-        <a class="btn" href="guess.html">PLAY</a>
-      </div>
-      <div class="card">
-        <h3>Healthy Diet Finder</h3>
-        <p>Answer 10 quick questions + notes → get a personalized diet plan.</p>
-        <a class="btn" href="diet.html">PLAY</a>
-      </div>
-      <div class="card">
-        <h3>Future Price Prediction</h3>
-        <p>Answer scenarios then guess 5-year price → win if ≥75% close.</p>
-        <a class="btn" href="price.html">PLAY</a>
-      </div>
-      <div class="card">
-        <h3>Budget Glam Builder</h3>
-        <p>Pick 12+ beauty items under budget in 180s → scored out of 100.</p>
-        <a class="btn" href="glam.html">PLAY</a>
-      </div>
+        <p>Enter your details and get a fun AI-powered fortune.</p>
+      </a>
+
+      <!-- Game Card 2 -->
+      <a href="/game/quiz" class="card">
+        <h3>AI Quiz</h3>
+        <p>Test your knowledge with quiz questions generated on the fly.</p>
+      </a>
+
+      <!-- Game Card 3 -->
+      <a href="/game/story" class="card">
+        <h3>Story Builder</h3>
+        <p>Create wild stories with AI prompts and imagination.</p>
+      </a>
     </div>
-    <footer>© Team Boots</footer>
-  </div>
-  <script src="script.js" type="module"></script>
+  </main>
+
+  <footer class="container">
+    © 2025 AI Games Demo
+  </footer>
+
 </body>
 </html>
