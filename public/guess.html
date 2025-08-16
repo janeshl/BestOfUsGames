@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Guess the Character</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="guess">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> Guess the Character</div>
+      <a class="backlink" href="games.html">← Back</a>
+    </div>
+  </div>
+  <div class="container">
+    
+<div class="card">
+  <div class="row">
+    <div>
+      <label>Topic</label>
+      <select id="gTopic">
+        <option>Science</option><option>Sports</option><option>Movies</option><option>Politics</option><option>Tech</option>
+      </select>
+    </div>
+    <div style="align-self:flex-end;">
+      <button class="btn" id="gStart">Start Game</button>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="flex"><span class="badge">Round <span id="gRound">0</span>/10</span></div>
+  <div id="gPlay">
+    <div class="row">
+      <input class="input" id="gQ" placeholder="Ask a yes/no question or type 'guess: <name>'"/>
+      <button class="btn" id="gAsk">Ask</button>
+    </div>
+    <div style="margin-top:10px" id="gLog"></div>
+  </div>
+</div>
+<div class="card center" id="gEnd" style="display:none;">
+  <div id="gFinal"></div>
+  <div class="emoji" id="gEmo"></div>
+</div>
+
+  </div>
+  <script src="script.js" type="module"></script>
+</body>
+</html>
