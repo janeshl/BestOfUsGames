@@ -1,27 +1,22 @@
 <!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Guess the Character</title>
-<link rel="stylesheet" href="styling.css"/></head>
-<body class="container">
-<h2 class="section-title">Guess the Character — 10 Rounds</h2>
-<article class="card">
-  <form id="start-form" class="game-form">
-    <input name="topic" placeholder="Enter a topic (e.g., scientists, movie, fantasy, politics)" required/>
-    <button class="btn" type="submit"><span>Start</span></button>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guess the Character</title>
+  <link rel="stylesheet" href="styling.css" />
+</head>
+<body>
+<section class="section container">
+  <h2 class="section-title">Guess the Character</h2>
+  <div id="character-chat" class="chat card"></div>
+  <form id="character-form" class="card">
+    <input type="text" id="character-input" placeholder="Ask a question..." required />
+    <button class="btn" type="submit">Send</button>
   </form>
-  <div id="game" style="display:block; margin-top:10px;">
-    <div class="row" style="gap:8px;">
-      <div class="badge" id="rounds">Rounds left: 10</div>
-    </div>
-    <div id="chat" class="result" style="height:240px; overflow:auto; margin-top:8px;"></div>
-    <form id="turn-form" class="row" style="margin-top:8px;">
-      <input id="userline" placeholder="Ask questions or make a guess..." autocomplete="off" />
-      <button class="btn" type="submit"><span>Send</span></button>
-    </form>
-    <div id="result" class="result" style="margin-top:8px; display:none;"></div>
-  </div>
-</article>
-<div style="margin-top:24px"><a href="./games.html" class="back">← Back</a></div>
+  <div id="character-result" class="result-box hidden"></div>
+  <a href="games.html" class="back">← Back</a>
+</section>
 <script src="script.js"></script>
-</body></html>
+</body>
+</html>
