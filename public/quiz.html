@@ -1,18 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Quiz Challenge</title>
-  <link rel="stylesheet" href="styling.css" />
+  <link rel="stylesheet" href="styles.css"/>
 </head>
-<body>
-<section class="section container">
-  <h2 class="section-title">Quiz Challenge</h2>
-  <div id="quiz-box" class="card"></div>
-  <div id="quiz-result" class="result-box hidden"></div>
-  <a href="games.html" class="back">← Back</a>
-</section>
-<script src="script.js"></script>
+<body data-page="quiz">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> Quiz Challenge</div>
+      <a class="backlink" href="games.html">← Back</a>
+    </div>
+  </div>
+  <div class="container">
+    
+<div class="card">
+  <div class="row">
+    <div style="flex:2">
+      <label>Topic</label>
+      <input class="input" id="topic" placeholder="e.g., Space, History, Java, Cricket"/>
+    </div>
+    <div style="flex:1">
+      <label>&nbsp;</label>
+      <button class="btn" id="quizStart">Start 5-Round Quiz</button>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="flex"><span class="badge">Round <span id="quizRound">0</span>/5</span><span class="timer" id="quizTimer">20s</span></div>
+  <div id="quizWrap" style="margin-top:12px;"></div>
+</div>
+<div class="card center" id="quizResult" style="display:none;">
+  <div id="quizStatus"></div>
+  <div id="quizEmoji" class="emoji" style="margin-top:12px;"></div>
+  <div id="quizSummary" style="margin-top:12px;"></div>
+</div>
+
+  </div>
+  <script src="script.js" type="module"></script>
 </body>
 </html>
