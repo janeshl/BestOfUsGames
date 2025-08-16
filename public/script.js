@@ -1,168 +1,177 @@
-// === Shared helpers ===
-async function postJSON(url, data) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
+function $(s){return document.querySelector(s)}function $all(s){return Array.from(document.querySelectorAll(s))}function setText(e,t){if(e)e.textContent=t}function html(e,m){if(e)e.innerHTML=m}
 
-function showResult(id, text) {
-  const el = document.getElementById(id);
-  el.innerHTML = text;
-  el.classList.remove("hidden");
-}
-
-// === Game 1: Predict the Future ===
-const fortuneForm = document.getElementById("fortune-form");
-if (fortuneForm) {
-  fortuneForm.addEventListener("submit", async (e) => {
+// Predict the Future
+(function(){
+  const form = $('#f-form');
+  const out = $('#f-out');
+  if(!form || !out) return;
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = document.getElementById("name").value;
-    const month = document.getElementById("month").value;
-    const place = document.getElementById("place").value;
-    const data = await postJSON("/api/future", { name, month, place });
-    showResult("fortune-result", data.reply);
+    setText(out, "🔮 Summoning prophecies...");
+    const data = { name: form.name.value, birthMonth: form.birthMonth.value, favoritePlace: form.place.value };
+    try{
+      const res = await fetch('/api/predict-future', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const json = await res.json();
+      setText(out, json.ok ? json.content : ('Error: ' + (json.error || 'Unknown error')));
+      form.name.value=''; form.birthMonth.selectedIndex=0; form.place.value='';
+    }catch{ setText(out, 'Network error. Please try again.'); }
   });
-}
+})();
 
-// === Game 2: Quiz Challenge ===
-const quizBox = document.getElementById("quiz-box");
-if (quizBox) {
-  let round = 0, score = 0, questions = [];
+// 5-Round Quiz
+(function(){
+  const startForm = document.querySelector('#quiz-start');
+  if(!startForm) return;
+  const area = document.querySelector('#quiz-area');
+  const status = document.querySelector('#quiz-status');
+  const qEl = document.querySelector('#quiz-question');
+  const optsEl = document.querySelector('#quiz-options');
+  const explEl = document.querySelector('#quiz-expl');
+  const nextEl = document.querySelector('#quiz-next');
 
-  async function loadQuiz() {
-    const data = await postJSON("/api/quiz", { round });
-    questions = data.questions;
-    renderQuiz();
-  }
+  let token = null;
 
-  function renderQuiz() {
-    if (round >= 10) {
-      showResult("quiz-result", `Game Over! Final Score: ${score}/10`);
-      quizBox.innerHTML = "";
-      return;
-    }
-    const q = questions[round];
-    quizBox.innerHTML = `
-      <p><b>Q${round + 1}:</b> ${q.question}</p>
-      ${q.options.map((o, i) => `<button class="btn opt" data-i="${i}">${o}</button>`).join("")}
-      <p id="timer">Time left: 20s</p>
-    `;
-    let timeLeft = 20;
-    const timer = setInterval(() => {
-      timeLeft--;
-      document.getElementById("timer").innerText = `Time left: ${timeLeft}s`;
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        round++;
-        renderQuiz();
-      }
-    }, 1000);
+  function renderQuestion(idx, total, question, options){
+    area.style.display = 'block';
+    status.textContent = 'Question ' + idx + ' of ' + total;
+    qEl.textContent = question || '';
+    optsEl.innerHTML = '';
+    explEl.style.display = 'none';
+    explEl.textContent = '';
+    nextEl.innerHTML = '';
 
-    quizBox.querySelectorAll(".opt").forEach(btn => {
-      btn.onclick = () => {
-        if (parseInt(btn.dataset.i) === q.answer) score++;
-        clearInterval(timer);
-        round++;
-        renderQuiz();
+    (options || []).forEach((opt, i) => {
+      const d = document.createElement('div');
+      d.className = 'option';
+      d.textContent = (i+1) + '. ' + opt;
+      d.onclick = async () => {
+        Array.from(optsEl.children).forEach(n => n.style.pointerEvents='none');
+        try{
+          const res = await fetch('/api/quiz/answer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ token, choice: i+1 })
+          });
+          const json = await res.json();
+          if(!json.ok){ nextEl.innerHTML = '<div class="pill">Error: '+(json.error||'Unknown')+'</div>'; return; }
+          d.style.borderColor = json.correct ? 'rgba(51,200,120,.8)' : 'rgba(255,80,80,.8)';
+          if(json.explanation){
+            explEl.textContent = json.explanation;
+            explEl.style.display = 'block';
+          }
+          if(json.done){
+            nextEl.innerHTML = '<div class="pill">🏁 Finished! Score: '+json.score+' / '+json.total+'</div>';
+          } else if(json.next){
+            const b = document.createElement('button');
+            b.className = 'btn'; b.textContent = 'Next';
+            b.onclick = (e) => {
+              e.preventDefault();
+              renderQuestion(json.next.idx, json.next.total, json.next.question, json.next.options);
+            };
+            nextEl.appendChild(b);
+          }
+        }catch{
+          nextEl.innerHTML = '<div class="pill">Network error. Please try again.</div>';
+        }
       };
+      optsEl.appendChild(d);
     });
   }
 
-  loadQuiz();
-}
-
-// === Game 3: Guess the Character ===
-const charForm = document.getElementById("character-form");
-if (charForm) {
-  const chat = document.getElementById("character-chat");
-  charForm.addEventListener("submit", async (e) => {
+  startForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const q = document.getElementById("character-input").value;
-    chat.innerHTML += `<p><b>You:</b> ${q}</p>`;
-    document.getElementById("character-input").value = "";
-    const data = await postJSON("/api/character", { question: q });
-    chat.innerHTML += `<p><b>AI:</b> ${data.reply}</p>`;
-  });
-}
-
-// === Game 4: Healthy Diet Finder ===
-const healthyForm = document.getElementById("healthy-form");
-if (healthyForm) {
-  healthyForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const answers = Array.from(healthyForm.querySelectorAll("input")).map(i => i.value);
-    const data = await postJSON("/api/healthy", { answers });
-    showResult("healthy-result", data.plan);
-  });
-}
-
-// === Game 5: Price Prediction ===
-const priceForm = document.getElementById("price-form");
-if (priceForm) {
-  const chat = document.getElementById("price-chat");
-  priceForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const product = document.getElementById("product").value;
-    const currentPrice = document.getElementById("current-price").value;
-    const data = await postJSON("/api/price", { product, currentPrice });
-    showResult("price-result", data.result);
-  });
-}
-
-// === Game 6: Budget Glam Builder ===
-const glamForm = document.getElementById("glam-form");
-if (glamForm) {
-  glamForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const gender = document.getElementById("gender").value;
-    const budget = parseInt(document.getElementById("budget").value);
-    const data = await postJSON("/api/glam", { gender, budget });
-    renderProducts(data.products, budget);
-  });
-
-  function renderProducts(products, budget) {
-    const container = document.getElementById("glam-products");
-    let selected = [];
-    let timeLeft = 180;
-
-    function renderPage(page = 0) {
-      const start = page * 10, end = start + 10;
-      const list = products.slice(start, end);
-      container.innerHTML = list.map((p, i) =>
-        `<label><input type="checkbox" data-id="${start + i}"> ${p.name} - ₹${p.price} (${p.desc})</label><br>`
-      ).join("");
-      if (page > 0) container.innerHTML += `<button class="btn" id="prev">Prev</button>`;
-      if (end < products.length) container.innerHTML += `<button class="btn" id="next">Next</button>`;
-      container.innerHTML += `<p id="timer">Time left: ${timeLeft}s</p>`;
-      document.querySelectorAll("input[type=checkbox]").forEach(cb => {
-        cb.onchange = () => {
-          if (cb.checked) selected.push(products[cb.dataset.id]);
-          else selected = selected.filter(p => p !== products[cb.dataset.id]);
-        };
+    const topic = e.target.topic.value;
+    e.target.topic.value = '';
+    optsEl.innerHTML = '<div class="pill">Preparing quiz...</div>';
+    try{
+      const res = await fetch('/api/quiz/start', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ topic })
       });
-      const prev = document.getElementById("prev"), next = document.getElementById("next");
-      if (prev) prev.onclick = () => renderPage(page - 1);
-      if (next) next.onclick = () => renderPage(page + 1);
+      const json = await res.json();
+      if(!json.ok){ optsEl.innerHTML = 'Error: ' + (json.error || 'Unknown error'); return; }
+      token = json.token;
+      renderQuestion(json.idx, json.total, json.question, json.options);
+    }catch{
+      optsEl.innerHTML = 'Network error. Please try again.';
     }
+  });
+})();
 
-    renderPage(0);
+// Find the Character (conversational) — 5 rounds, hint only in last round, congrats in chat
+(function(){
+  const startForm = $('#start-form');
+  const turnForm = $('#turn-form');
+  const chat = $('#chat');
+  const rounds = $('#rounds');
+  const result = $('#result'); // kept for compatibility, but no longer used for messages
+  if(!startForm || !chat) return;
 
-    const timer = setInterval(() => {
-      timeLeft--;
-      const t = document.getElementById("timer");
-      if (t) t.innerText = `Time left: ${timeLeft}s`;
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        finishGame(selected, budget);
+  let sessionId = null, roundsLeft = 5;
+
+  function pushMsg(who, text){
+    const d = document.createElement('div'); d.className='msg';
+    d.innerHTML = '<b>'+who+':</b> '+text;
+    chat.appendChild(d);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  startForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    html(chat, '<div class="pill">Picking a secret character...</div>');
+    const topic = e.target.topic.value;
+    e.target.topic.value='';
+    try{
+      const res = await fetch('/api/character/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ topic }) });
+      const json = await res.json();
+      if(!json.ok){ html(chat, 'Error: ' + (json.error || 'Unknown error')); return; }
+      sessionId = json.sessionId;
+      roundsLeft = 5;
+      $('#game').style.display = 'block';
+      html(chat, '');
+      pushMsg('AI', json.message || 'Ask your first yes/no question!');
+      setText(rounds, 'Rounds left: ' + roundsLeft);
+      if(result) result.innerHTML = ''; // not used anymore
+    }catch{ html(chat, 'Network error. Please try again.'); }
+  });
+
+  if(turnForm){
+    turnForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if(!sessionId) return;
+      const line = $('#userline').value.trim();
+      if(!line) return;
+
+      pushMsg('You', line);
+      $('#userline').value='';
+
+      try{
+        const res = await fetch('/api/character/turn', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sessionId, text: line }) });
+        const json = await res.json();
+        if(!json.ok){ pushMsg('AI', 'Error: ' + (json.error || 'Unknown error')); return; }
+
+        if(json.answer){ pushMsg('AI', json.answer); }
+        if(json.hint){   pushMsg('AI', '💡 Hint: ' + json.hint); }
+
+        if(json.done){
+          if(json.win){
+            // Congratulate directly in chat
+            pushMsg('AI', `🎉 Correct! You found ${json.name}.`);
+          } else {
+            pushMsg('AI', `🕵️ Out of rounds. The character was ${json.name}.`);
+          }
+          sessionId = null;
+          if(json.message) pushMsg('AI', json.message);
+          return;
+        }
+
+        if(typeof json.roundsLeft === 'number'){
+          roundsLeft = json.roundsLeft;
+          setText(rounds, 'Rounds left: ' + roundsLeft);
+        }
+      }catch{
+        pushMsg('AI', 'Network error. Please try again.');
       }
-    }, 1000);
+    });
   }
-
-  async function finishGame(selected, budget) {
-    const data = await postJSON("/api/glam-score", { selected, budget });
-    showResult("glam-result", data.result);
-  }
-}
+})();
