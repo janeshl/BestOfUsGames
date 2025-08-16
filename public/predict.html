@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Predict the Future</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="predict">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> Predict the Future</div>
+      <a class="backlink" href="games.html">← Back</a>
+    </div>
+  </div>
+  <div class="container">
+    
+<div class="card">
+  <div class="stack">
+    <div class="row">
+      <div>
+        <label>Your Name</label>
+        <input class="input" id="name" placeholder="Remya, Vishnu, Geo"/>
+      </div>
+      <div>
+        <label>Birth Month</label>
+        <select id="month">
+          <option value="" disabled selected>Select</option>
+          <option>January</option><option>February</option><option>March</option><option>April</option>
+          <option>May</option><option>June</option><option>July</option><option>August</option>
+          <option>September</option><option>October</option><option>November</option><option>December</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label>Favourite Place</label>
+        <input class="input" id="place" placeholder="Kerala backwaters, Trivandrum, Paris"/>
+      </div>
+      <div>
+        <label>Favourite Hobby</label>
+        <input class="input" id="hobby" placeholder="Photography, Cricket, Movie"/>
+      </div>
+    </div>
+    <button class="btn" id="predictBtn">✨ Make My Predictions</button>
+  </div>
+</div>
+<div class="card" id="predOut" style="margin-top:16px; display:none;"></div>
+
+  </div>
+  <script src="script.js" type="module"></script>
+</body>
+</html>
