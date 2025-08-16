@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Find Healthy Diet</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body data-page="diet">
+  <div class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand"><span class="dot"></span> Healthy Diet Finder</div>
+      <a class="backlink" href="games.html">← Back</a>
+    </div>
+  </div>
+  <div class="container">
+    
+<div class="card" id="dStep1">
+  <h3>Round 1 of Questions</h3>
+  <div class="stack">
+    <div class="row">
+      <div><label>Age Range</label>
+        <select id="dAge">
+          <option>18-24</option><option>25-34</option><option>35-44</option><option>45-54</option><option>55+</option>
+        </select></div>
+      <div><label>Gender</label>
+        <select id="dGender"><option>Female</option><option>Male</option><option>Non-binary</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Activity Level</label><select id="dActivity"><option>Low</option><option>Moderate</option><option>High</option></select></div>
+      <div><label>Diet Preference</label><select id="dDiet"><option>Vegetarian</option><option>Vegan</option><option>Non-vegetarian</option><option>Eggetarian</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>Allergies</label><input class="input" id="dAllergies" placeholder="e.g., lactose, nuts"/></div>
+      <div><label>Primary Goal</label><select id="dGoal"><option>Weight Loss</option><option>Muscle Gain</option><option>General Wellness</option><option>Improve Energy</option></select></div>
+    </div>
+    <button class="btn" id="dNext1">Next →</button>
+  </div>
+</div>
+<div class="card" id="dStep2" style="display:none;">
+  <h3>Round 2 of Questions</h3>
+  <div class="stack">
+    <div class="row">
+      <div><label>Any Health Conditions?</label><input class="input" id="dCond" placeholder="e.g., diabetes, hypertension"/></div>
+      <div><label>Favourite Cuisines</label><input class="input" id="dCuis" placeholder="e.g., Indian, Mediterranean"/></div>
+    </div>
+    <div class="row">
+      <div><label>Budget per Day (INR)</label><input class="input" id="dBudget" type="number" min="150" value="300"/></div>
+      <div><label>Meals per Day</label><select id="dMeals"><option>3</option><option>4</option><option>5</option></select></div>
+    </div>
+    <label>Additional Information (optional)</label>
+    <textarea id="dNotes" rows="3" placeholder="Anything else we should know?"></textarea>
+    <div class="row">
+      <button class="btn" id="dBack">← Back</button>
+      <button class="btn" id="dGen">Generate Diet Plan</button>
+    </div>
+  </div>
+</div>
+<div class="card" id="dPlan" style="display:none;"></div>
+
+  </div>
+  <script src="script.js" type="module"></script>
+</body>
+</html>
