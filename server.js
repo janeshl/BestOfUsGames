@@ -26,7 +26,7 @@ app.post("/api/chat", async (req, res) => {
     if(!GROQ_API_KEY){
       return res.status(500).json({ error: "GROQ_API_KEY missing on server" });
     }
-    const { messages=[], model="llama-3.3-70b-versatile", temperature=0.9, response_format } = req.body || {};
+    const { messages=[], model="openai/gpt-oss-120b", temperature=0.9, response_format } = req.body || {};
 
     const payload = { model, temperature, messages };
     if(response_format) payload.response_format = response_format;
