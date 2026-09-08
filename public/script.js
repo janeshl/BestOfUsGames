@@ -6,7 +6,7 @@ async function aiComplete({system, prompt, json=false}){
     if(system) messages.push({role:"system", content:system});
     messages.push({role:"user", content:prompt});
 
-    const body = { model: "llama-3.3-70b-versatile", temperature: 0.9, messages };
+    const body = { model: "openai/gpt-oss-120b", temperature: 0.9, messages };
     if(json){ body.response_format = { type: "json_object" }; }
 
     const res = await fetch("/api/chat", {
